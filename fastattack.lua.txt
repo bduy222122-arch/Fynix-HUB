@@ -339,7 +339,7 @@ task.spawn(function()
     local cachedRemote = getRemote()
 
     while true do
-        task.wait(0.015) -- ⚡ mượt + không đốt CPU
+        task.wait(0) -- ⚡ mượt + không đốt CPU
 
         local now = tick()
         if now - lastAttackTime < ATTACK_COOLDOWN then continue end
