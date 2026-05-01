@@ -314,60 +314,33 @@ local lastAttackTime = 0
 local ATTACK_COOLDOWN = 1e-8  -- 100ms
 
 task.spawn(function()
-    while task.wait(0.03) do
-        pcall(function()
-            local now = tick()
-            if now - lastAttackTime < ATTACK_COOLDOWN then return end
+    while true do
+        task.wait(0) -- ⚡ nhanh hơn nhưng vẫn ổn định
 
-            local root   = hrp()
-            local remote = getRemote()
+        local now = tick()
+        if now - lastAttackTime < ATTACK_COOLDOWN then continue end
 
-            if not root or not remote then
-                if tick() - _lastDebugTick > 3 then
-                    _lastDebugTick = tick()
-                    dbg("WARN root=" .. tostring(root ~= nil) .. " remote=" .. tostring(remote ~= nil))
-                end
-                return
-            end
+        local root = hrp()
+        local remote = getRemote()
+        if not root or not remote then continue end
 
-            sharedTargets = gatherTargets(root)
-            sharedPrimary = getLockedTarget(root, sharedTargets)
+        -- 🔥 cache targets (giảm gọi hàm)
+        sharedTargets = gatherTargets(root)
+        local primary = getLockedTarget(root, sharedTargets)
+        sharedPrimary = primary
 
-            if tick() - _lastDebugTick > 3 then
-                _lastDebugTick = tick()
-                local pc, mc = 0, 0
-                for _, t in ipairs(sharedTargets) do
-                    if t.kind == "player" then pc += 1 else mc += 1 end
-                end
-                dbg(("targets=%dp+%dm | primary=%s(%s)"):format(
-                    pc, mc,
-                    sharedPrimary and sharedPrimary.model.Name or "nil",
-                    sharedPrimary and sharedPrimary.kind or "-"
-                ))
-                for _, other in ipairs(Players:GetPlayers()) do
-                    if other ~= plr then
-                        dbg(("  %s alive=%s pvp=%s team=%s→%s enemy=%s"):format(
-                            other.Name,
-                            tostring(other.Character and aliveModel(other.Character)),
-                            tostring(isPvPEnabled(other)),
-                            tostring(getTeamName(plr)),
-                            tostring(getTeamName(other)),
-                            tostring(isEnemyPlayer(other))
-                        ))
-                    end
-                end
-            end
+        if not primary then
+            currentTargetModel = nil
+            continue
+        end
 
-            if not sharedPrimary then currentTargetModel = nil; return end
-
-            if shouldAttackNow(root, sharedPrimary) then
-                fireAt(remote, root.Position, sharedPrimary.root, sharedPrimary.kind == "player")
-                lastAttackTime = now
-            end
-        end)
+        -- 🔥 check nhanh
+        if shouldAttackNow(root, primary) then
+            fireAt(remote, root.Position, primary.root, primary.kind == "player")
+            lastAttackTime = now
+        end
     end
 end)
-
 task.spawn(function()
     while task.wait(0.08) do
         pcall(function()
