@@ -188,86 +188,112 @@ local function getTargetDistance(root, targetRoot)
 end
 
 local function gatherTargets(root)
-    local targets     = {}
+    local targets = {}
     local forcedModel, forcedRoot, forcedKind = getBountyTarget()
+
+    -- 🔥 PREALLOC (tăng tốc table)
+    local idx = 0
 
     local function push(model, targetRoot, kind, priority)
         if not model or not targetRoot then return end
-        local distance = (targetRoot.Position - root.Position).Magnitude
+
+        local dx = targetRoot.Position.X - root.Position.X
+        local dy = targetRoot.Position.Y - root.Position.Y
+        local dz = targetRoot.Position.Z - root.Position.Z
+        local distance = (dx*dx + dy*dy + dz*dz) ^ 0.5 -- ⚡ nhanh hơn Magnitude
+
         if distance > CONFIG.SEARCH_RADIUS then return end
         if kind == "mob" and distance > CONFIG.MOB_AUTO_ATTACK_DISTANCE then return end
 
-        table.insert(targets, {
+        idx += 1
+        targets[idx] = {
             model    = model,
             root     = targetRoot,
             kind     = kind,
             priority = priority,
             distance = distance,
-        })
+        }
     end
 
+    -- 🔥 FORCE TARGET (ưu tiên tuyệt đối)
     if forcedModel and forcedRoot then
-        push(forcedModel, forcedRoot, forcedKind, -99)
+        push(forcedModel, forcedRoot, forcedKind, -999)
     end
 
-    for _, other in ipairs(Players:GetPlayers()) do
-        if isEnemyPlayer(other) and other.Character ~= forcedModel then
-            push(other.Character, getRoot(other.Character), "player", -10)
-        end
-    end
-
-    local hasPlayer = false
-    for _, t in ipairs(targets) do
-        if t.kind == "player" then hasPlayer = true; break end
-    end
-
-    if not hasPlayer then
-        for _, mob in ipairs(enemiesFolder:GetChildren()) do
-            if aliveModel(mob) then
-                push(mob, getRoot(mob), "mob", 10)
+    -- 🔥 PLAYER (MULTI HIT FULL SERVER)
+    local players = Players:GetPlayers()
+    for i = 1, #players do
+        local other = players[i]
+        if other ~= plr and isEnemyPlayer(other) then
+            local char = other.Character
+            if char ~= forcedModel then
+                push(char, getRoot(char), "player", -50)
             end
         end
     end
 
+    -- 🔥 MOB (LUÔN ADD → MULTI HIT MAX)
+    for _, mob in ipairs(enemiesFolder:GetChildren()) do
+        if aliveModel(mob) then
+            push(mob, getRoot(mob), "mob", 50)
+        end
+    end
+
+    -- 🔥 SORT SIÊU NHANH
     table.sort(targets, function(a, b)
-        if a.priority ~= b.priority then return a.priority < b.priority end
-        return a.distance < b.distance
+        return a.priority == b.priority and a.distance < b.distance or a.priority < b.priority
     end)
 
     return targets
 end
+
+-- 🔥 ULTRA OPTIMIZED (MULTI HIT + MAX SPEED + NO WASTE)
 
 local currentTargetModel = nil
 
 local function getPrimaryPlayerTarget(targets)
     for i = 1, #targets do
         local e = targets[i]
-        if isValidTargetEntry(e) and e.kind == "player" then return e end
+        if e.kind == "player" and e.root and e.model and e.root.Parent then
+            return e
+        end
     end
 end
 
 local function getPrimaryTarget(targets)
     for i = 1, #targets do
-        if isValidTargetEntry(targets[i]) then return targets[i] end
+        local e = targets[i]
+        if e.root and e.model and e.root.Parent then
+            return e
+        end
     end
 end
 
 local function canKeepCurrentTarget(root, entry)
-    if not root or not isValidTargetEntry(entry) then return false end
+    if not root or not entry or not entry.root or not entry.root.Parent then return false end
+
+    local dx = entry.root.Position.X - root.Position.X
+    local dy = entry.root.Position.Y - root.Position.Y
+    local dz = entry.root.Position.Z - root.Position.Z
+    local dist = (dx*dx + dy*dy + dz*dz)^0.5
 
     if entry.kind == "player" then
-        return getTargetDistance(root, entry.root) <= CONFIG.SEARCH_RADIUS
+        return dist <= CONFIG.SEARCH_RADIUS
     end
-    return getTargetDistance(root, entry.root) <= CONFIG.MOB_AUTO_ATTACK_DISTANCE
+    return dist <= CONFIG.MOB_AUTO_ATTACK_DISTANCE
 end
 
 local function getLockedTarget(root, targets)
-    local playerTarget = getPrimaryPlayerTarget(targets)
-    if playerTarget then
-        currentTargetModel = playerTarget.model
-        return playerTarget
+    -- 🔥 ưu tiên player
+    for i = 1, #targets do
+        local e = targets[i]
+        if e.kind == "player" and e.root and e.root.Parent then
+            currentTargetModel = e.model
+            return e
+        end
     end
 
+    -- 🔥 giữ target cũ
     if currentTargetModel then
         for i = 1, #targets do
             local e = targets[i]
@@ -277,119 +303,165 @@ local function getLockedTarget(root, targets)
         end
     end
 
-    local primary = getPrimaryTarget(targets)
-    currentTargetModel = primary and primary.model or nil
-    return primary
+    -- 🔥 fallback
+    local e = targets[1]
+    if e then
+        currentTargetModel = e.model
+    else
+        currentTargetModel = nil
+    end
+
+    return e
 end
 
 local function shouldAttackNow(root, entry)
-    if not entry then return false end
-    if entry.kind == "player" then return true end
-    return getTargetDistance(root, entry.root) <= CONFIG.MOB_AUTO_ATTACK_DISTANCE
+    if not entry or not entry.root then return false end
+
+    if entry.kind == "player" then
+        return true
+    end
+
+    local dx = entry.root.Position.X - root.Position.X
+    local dy = entry.root.Position.Y - root.Position.Y
+    local dz = entry.root.Position.Z - root.Position.Z
+    return (dx*dx + dy*dy + dz*dz) <= (CONFIG.MOB_AUTO_ATTACK_DISTANCE^2)
 end
 
+-- 🔥 MAX MULTI HIT (FULL SERVER)
 local function buildHitList(targets, primaryEntry)
-    local hitData = {}
-    local seen    = {}
+    local hitData = table.create(CONFIG.MAX_HIT_TARGETS)
+    local count = 0
 
-    if primaryEntry and isValidTargetEntry(primaryEntry) then
-        hitData[1]                    = { primaryEntry.model, primaryEntry.root }
-        seen[primaryEntry.model]      = true
+    if primaryEntry and primaryEntry.root then
+        count += 1
+        hitData[count] = {primaryEntry.model, primaryEntry.root}
     end
 
+    -- 🔥 add ALL (no seen check → max speed)
     for i = 1, #targets do
-        if #hitData >= CONFIG.MAX_HIT_TARGETS then break end
-        local e = targets[i]
-        if not seen[e.model] and isValidTargetEntry(e) and e.kind == "player" then
-            hitData[#hitData + 1] = { e.model, e.root }
-            seen[e.model] = true
-        end
-    end
+        if count >= CONFIG.MAX_HIT_TARGETS then break end
 
-    for i = 1, #targets do
-        if #hitData >= CONFIG.MAX_HIT_TARGETS then break end
         local e = targets[i]
-        if not seen[e.model] and isValidTargetEntry(e)
-            and e.kind == "mob" and e.distance <= CONFIG.MOB_AUTO_ATTACK_DISTANCE
-        then
-            hitData[#hitData + 1] = { e.model, e.root }
-            seen[e.model] = true
+        if e.root and e.root.Parent then
+            count += 1
+            hitData[count] = {e.model, e.root}
         end
     end
 
     return hitData
 end
 
+-- 🔥 ULTRA FAST fireAt (NO WASTE + MAX SPEED)
+
 local function fireAt(remote, origin, targetRoot, isPlayer)
-    if not remote or not origin or not targetRoot then return end
-    local aimPos  = isPlayer and getPredictedPosition(targetRoot) or targetRoot.Position
-    local fireVec = dir(origin, aimPos)
-    if fireVec then
-        remote:FireServer(fireVec, 1, true)
+    if not remote or not targetRoot then return end
+
+    local pos = targetRoot.Position
+
+    -- 🔥 LIGHT PREDICTION (ONLY WHEN PLAYER)
+    if isPlayer then
+        local vel = targetRoot.AssemblyLinearVelocity
+        if vel.Magnitude > 0 then
+            pos = pos + vel * CONFIG.AIM_PREDICTION_FACTOR
+        end
     end
+
+    -- 🔥 FAST DIR (NO FUNCTION CALL)
+    local dx = pos.X - origin.X
+    local dy = pos.Y - origin.Y
+    local dz = pos.Z - origin.Z
+
+    local mag = (dx*dx + dy*dy + dz*dz)^0.5
+    if mag == 0 then return end
+
+    if mag > CONFIG.ATTACK_RANGE then
+        local scale = CONFIG.ATTACK_RANGE / mag
+        dx *= scale
+        dy *= scale
+        dz *= scale
+    end
+
+    remote:FireServer(Vector3.new(dx, dy, dz), 1, true)
 end
+
+-- 🔥 ULTRA LOOP (MAX SPEED + STABLE + LOW DELAY)
 
 local sharedTargets  = {}
 local sharedPrimary  = nil
-local _lastDebugTick = 0
 local lastAttackTime = 0
-local ATTACK_COOLDOWN = 0  -- 100ms
+local ATTACK_COOLDOWN = 0
+
+local _lastTargetUpdate = 0
 
 task.spawn(function()
     local cachedRemote = getRemote()
 
     while true do
-        task.wait() -- ⚡ mượt + không đốt CPU
+        task.wait(0) -- ⚡ fastest yield
 
         local now = tick()
-        if now - lastAttackTime < ATTACK_COOLDOWN then continue end
+
+        -- 🔥 cooldown ultra fast
+        if now <= lastAttackTime then continue end
 
         local root = hrp()
         if not root then continue end
 
-        -- 🔥 chỉ update target mỗi 0.05s
-        if not _lastTargetUpdate or now - _lastTargetUpdate > 0.05 then
+        -- 🔥 update target cực nhanh (0.03)
+        if now - _lastTargetUpdate > 0.03 then
             sharedTargets = gatherTargets(root)
             sharedPrimary = getLockedTarget(root, sharedTargets)
             _lastTargetUpdate = now
         end
 
         local primary = sharedPrimary
-        if not primary then
+        if not primary or not primary.root then
             currentTargetModel = nil
             continue
         end
 
-        if shouldAttackNow(root, primary) then
+        -- 🔥 FORCE ATTACK (bypass check nhẹ)
+        if primary.kind == "player" or shouldAttackNow(root, primary) then
             fireAt(cachedRemote, root.Position, primary.root, primary.kind == "player")
             lastAttackTime = now
         end
     end
 end)
+-- 🔥 ULTRA MULTI HIT LOOP (MAX SPEED + NO DELAY + STABLE)
+
 task.spawn(function()
     while true do
-        task.wait() -- ⚡ nhẹ hơn
+        task.wait(0) -- ⚡ fastest
 
         local root = hrp()
         if not root then continue end
 
         local primary = sharedPrimary
-        if not primary or not shouldAttackNow(root, primary) then continue end
+        if not primary or not primary.root then continue end
+
+        -- 🔥 bypass check nhẹ (player luôn đánh)
+        if primary.kind ~= "player" and not shouldAttackNow(root, primary) then continue end
 
         local hitData = buildHitList(sharedTargets, primary)
-        if #hitData == 0 then continue end
+        local count = #hitData
+        if count == 0 then continue end
 
         if registerHit then
-            if registerAttack then registerAttack:FireServer() end
+            -- 🔥 spam nhẹ x2 → tăng tốc hit
+            if registerAttack then
+                registerAttack:FireServer()
+                registerAttack:FireServer()
+            end
+
             registerHit:FireServer(
                 primary.root,
                 hitData,
                 nil,
                 nil,
-                tostring(math.random(100000, 999999))
+                tostring(now or tick())
             )
         else
-            for i = 2, #hitData do
+            for i = 1, count do
                 local extraRoot = hitData[i][2]
                 if extraRoot then
                     fireAt(nil, root.Position, extraRoot, false)
@@ -399,15 +471,15 @@ task.spawn(function()
     end
 end)
 
--- 🔥 TARGET VALIDATION (FASTER)
+-- 🔥 TARGET VALIDATION (FAST + LOW COST)
 task.spawn(function()
     while true do
-        task.wait(0.2) -- ⚡ nhanh hơn
+        task.wait(0.1) -- ⚡ nhanh hơn nữa
 
         local root = hrp()
         local primary = sharedPrimary
 
-        if root and currentTargetModel and primary then
+        if root and primary and primary.root then
             if not canKeepCurrentTarget(root, primary) then
                 currentTargetModel = nil
                 sharedPrimary = nil
@@ -468,121 +540,93 @@ task.spawn(function()
 end)
 _G.Seriality = true
 
-----------------------------------------------------------
--- SERVICES
-----------------------------------------------------------
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunSer = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
+-- 🔥 FIXED FAST ATTACK (STABLE + ALWAYS HIT)
 
-local player = Players.LocalPlayer
-
-----------------------------------------------------------
--- CONFIG (DYNAMIC)
-----------------------------------------------------------
-local AURA_RANGE  = 300
-local HITBOX_SIZE = Vector3.new(100,100,100)
-local LOOP_DELAY  = 0.05
-
-
-
-
-----------------------------------------------------------
--- SAFE CHECK
-----------------------------------------------------------
-local function IsEntityAlive(entity)
-	if not entity then return false end
-	local humanoid = entity:FindFirstChild("Humanoid")
-	return humanoid and humanoid.Health > 0
-end
-
-----------------------------------------------------------
--- GET TARGETS IN RANGE
-----------------------------------------------------------
-local function GetEnemiesInRange(character, range)
-	local targets = {}
-	if not character then return targets end
-
-	local pos = character:GetPivot().Position
-	for _, enemy in ipairs(Workspace.Enemies:GetChildren()) do
-		local root = enemy:FindFirstChild("HumanoidRootPart")
-		if root and IsEntityAlive(enemy) then
-			if (root.Position - pos).Magnitude <= range then
-				targets[#targets+1] = enemy
-			end
-		end
-	end
-	return targets
-end
-
-----------------------------------------------------------
--- HITBOX EXPAND
-----------------------------------------------------------
-local function ExpandWeaponHitbox(tool)
-	for _, v in ipairs(tool:GetDescendants()) do
-		if v:IsA("BasePart") and v.Name ~= "Handle" then
-			v.Size = HITBOX_SIZE
-			v.Transparency = 1
-			v.CanCollide = false
-			v.Massless = true
-		end
-	end
-end
-
-----------------------------------------------------------
--- ATTACK
-----------------------------------------------------------
-local function AttackNoCoolDown()
-	local char = player.Character
-	if not char then return end
-
-	local tool = char:FindFirstChildOfClass("Tool")
-	if not tool then return end
-
-	local enemies = GetEnemiesInRange(char, AURA_RANGE)
-	if #enemies == 0 then return end
-
-	local net = ReplicatedStorage.Modules.Net
-	local attackEvent = net["RE/RegisterAttack"]
-	local hitEvent = net["RE/RegisterHit"]
-
-	local targets = {}
-	local main
-
-	for _, enemy in ipairs(enemies) do
-		local part = enemy:FindFirstChild("HumanoidRootPart")
-		if part then
-			targets[#targets+1] = {enemy, part}
-			main = part
-		end
-	end
-
-	if main then
-		attackEvent:FireServer(0)
-		hitEvent:FireServer(main, targets)
-	end
-end
-
-----------------------------------------------------------
--- MAIN LOOP
-----------------------------------------------------------
 local lastTick = 0
+local LOOP_DELAY = 0.03 -- ⚡ ổn định hơn (đừng 0)
 
+local attackEvent, hitEvent
+
+-- 🔥 LOAD REMOTE SAFE
+task.spawn(function()
+    local ok, net = pcall(function()
+        return require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net"))
+    end)
+
+    if ok and net then
+        attackEvent = net:RemoteEvent("RegisterAttack")
+        hitEvent = net:RemoteEvent("RegisterHit")
+    end
+end)
+
+-- 🔥 AUTO EQUIP
+local function getTool()
+    local char = player.Character
+    if not char then return end
+
+    local tool = char:FindFirstChildOfClass("Tool")
+    if tool then return tool end
+
+    for _,v in ipairs(player.Backpack:GetChildren()) do
+        if v:IsA("Tool") then
+            char.Humanoid:EquipTool(v)
+            return v
+        end
+    end
+end
+
+-- 🔥 MAIN ATTACK
+local function Attack()
+    local char = player.Character
+    if not char then return end
+
+    local tool = getTool()
+    if not tool then return end
+
+    if not attackEvent or not hitEvent then return end
+
+    local enemies = GetEnemiesInRange(char, AURA_RANGE)
+    if #enemies == 0 then return end
+
+    local targets = {}
+    local main
+
+    for i = 1, #enemies do
+        local enemy = enemies[i]
+        local part = enemy:FindFirstChild("HumanoidRootPart")
+        if part then
+            targets[#targets+1] = {enemy, part}
+            main = part
+        end
+    end
+
+    if main then
+        attackEvent:FireServer(0)
+        hitEvent:FireServer(main, targets)
+    end
+end
+
+-- 🔥 LOOP (ỔN ĐỊNH)
 RunSer.Heartbeat:Connect(function()
-	if not _G.Seriality then return end
-	if tick() - lastTick < LOOP_DELAY then return end
-	lastTick = tick()
+    if not _G.Seriality then return end
 
-	pcall(function()
-		local char = player.Character
-		if not char then return end
+    local now = tick()
+    if now - lastTick < LOOP_DELAY then return end
+    lastTick = now
 
-		local tool = char:FindFirstChildOfClass("Tool")
-		if not tool then return end
+    local char = player.Character
+    if not char then return end
 
-		ExpandWeaponHitbox(tool)
-		AttackNoCoolDown()
-	end)
+    local tool = getTool()
+    if not tool then return end
+
+    -- 🔥 expand 1 lần thôi (tránh spam)
+    if not tool:FindFirstChild("__hitbox") then
+        local tag = Instance.new("BoolValue")
+        tag.Name = "__hitbox"
+        tag.Parent = tool
+        ExpandWeaponHitbox(tool)
+    end
+
+    pcall(Attack)
 end)
