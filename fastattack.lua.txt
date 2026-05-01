@@ -5,10 +5,10 @@ local plr = Players.LocalPlayer
 local enemiesFolder = workspace:WaitForChild("Enemies")
 
 local CONFIG = {
-    ATTACK_RANGE = 650,
+    ATTACK_RANGE = 1000,
     SEARCH_RADIUS = 2500,
     MAX_HIT_TARGETS = 20,
-    PLAYER_AUTO_ATTACK_DISTANCE = 9999,
+    PLAYER_AUTO_ATTACK_DISTANCE = 1e9,
     MOB_AUTO_ATTACK_DISTANCE = 200,
     AIM_PREDICTION_FACTOR = 0.12,
     DEBUG = true,
@@ -368,7 +368,7 @@ task.spawn(function()
 end)
 task.spawn(function()
     while true do
-        task.wait(0.06) -- ⚡ nhẹ hơn
+        task.wait(0) -- ⚡ nhẹ hơn
 
         local root = hrp()
         if not root then continue end
