@@ -466,3 +466,123 @@ task.spawn(function()
         end
     end)
 end)
+_G.Seriality = true
+
+----------------------------------------------------------
+-- SERVICES
+----------------------------------------------------------
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunSer = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+
+----------------------------------------------------------
+-- CONFIG (DYNAMIC)
+----------------------------------------------------------
+local AURA_RANGE  = 300
+local HITBOX_SIZE = Vector3.new(100,100,100)
+local LOOP_DELAY  = 0.05
+
+
+
+
+----------------------------------------------------------
+-- SAFE CHECK
+----------------------------------------------------------
+local function IsEntityAlive(entity)
+	if not entity then return false end
+	local humanoid = entity:FindFirstChild("Humanoid")
+	return humanoid and humanoid.Health > 0
+end
+
+----------------------------------------------------------
+-- GET TARGETS IN RANGE
+----------------------------------------------------------
+local function GetEnemiesInRange(character, range)
+	local targets = {}
+	if not character then return targets end
+
+	local pos = character:GetPivot().Position
+	for _, enemy in ipairs(Workspace.Enemies:GetChildren()) do
+		local root = enemy:FindFirstChild("HumanoidRootPart")
+		if root and IsEntityAlive(enemy) then
+			if (root.Position - pos).Magnitude <= range then
+				targets[#targets+1] = enemy
+			end
+		end
+	end
+	return targets
+end
+
+----------------------------------------------------------
+-- HITBOX EXPAND
+----------------------------------------------------------
+local function ExpandWeaponHitbox(tool)
+	for _, v in ipairs(tool:GetDescendants()) do
+		if v:IsA("BasePart") and v.Name ~= "Handle" then
+			v.Size = HITBOX_SIZE
+			v.Transparency = 1
+			v.CanCollide = false
+			v.Massless = true
+		end
+	end
+end
+
+----------------------------------------------------------
+-- ATTACK
+----------------------------------------------------------
+local function AttackNoCoolDown()
+	local char = player.Character
+	if not char then return end
+
+	local tool = char:FindFirstChildOfClass("Tool")
+	if not tool then return end
+
+	local enemies = GetEnemiesInRange(char, AURA_RANGE)
+	if #enemies == 0 then return end
+
+	local net = ReplicatedStorage.Modules.Net
+	local attackEvent = net["RE/RegisterAttack"]
+	local hitEvent = net["RE/RegisterHit"]
+
+	local targets = {}
+	local main
+
+	for _, enemy in ipairs(enemies) do
+		local part = enemy:FindFirstChild("HumanoidRootPart")
+		if part then
+			targets[#targets+1] = {enemy, part}
+			main = part
+		end
+	end
+
+	if main then
+		attackEvent:FireServer(0)
+		hitEvent:FireServer(main, targets)
+	end
+end
+
+----------------------------------------------------------
+-- MAIN LOOP
+----------------------------------------------------------
+local lastTick = 0
+
+RunSer.Heartbeat:Connect(function()
+	if not _G.Seriality then return end
+	if tick() - lastTick < LOOP_DELAY then return end
+	lastTick = tick()
+
+	pcall(function()
+		local char = player.Character
+		if not char then return end
+
+		local tool = char:FindFirstChildOfClass("Tool")
+		if not tool then return end
+
+		ExpandWeaponHitbox(tool)
+		AttackNoCoolDown()
+	end)
+end)
