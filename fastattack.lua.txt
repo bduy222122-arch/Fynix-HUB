@@ -5,11 +5,11 @@ local plr = Players.LocalPlayer
 local enemiesFolder = workspace:WaitForChild("Enemies")
 
 local CONFIG = {
-    ATTACK_RANGE = 1000,
-    SEARCH_RADIUS = 2500,
-    MAX_HIT_TARGETS = 20,
-    PLAYER_AUTO_ATTACK_DISTANCE = 9e9,
-    MOB_AUTO_ATTACK_DISTANCE = 200,
+    ATTACK_RANGE = 6500,
+    SEARCH_RADIUS = 25000,
+    MAX_HIT_TARGETS = 200,
+    PLAYER_AUTO_ATTACK_DISTANCE = 99999,
+    MOB_AUTO_ATTACK_DISTANCE = 2000,
     AIM_PREDICTION_FACTOR = 0.12,
     DEBUG = true,
 }  
@@ -333,13 +333,13 @@ local sharedTargets  = {}
 local sharedPrimary  = nil
 local _lastDebugTick = 0
 local lastAttackTime = 0
-local ATTACK_COOLDOWN = 1e-8  -- 100ms
+local ATTACK_COOLDOWN = 0  -- 100ms
 
 task.spawn(function()
     local cachedRemote = getRemote()
 
     while true do
-        task.wait(0) -- ⚡ mượt + không đốt CPU
+        task.wait() -- ⚡ mượt + không đốt CPU
 
         local now = tick()
         if now - lastAttackTime < ATTACK_COOLDOWN then continue end
@@ -368,7 +368,7 @@ task.spawn(function()
 end)
 task.spawn(function()
     while true do
-        task.wait(0) -- ⚡ nhẹ hơn
+        task.wait() -- ⚡ nhẹ hơn
 
         local root = hrp()
         if not root then continue end
@@ -399,63 +399,70 @@ task.spawn(function()
     end
 end)
 
--- Periodic target validation to prevent locking on distant targets
+-- 🔥 TARGET VALIDATION (FASTER)
 task.spawn(function()
     while true do
-        task.wait(0.4)
+        task.wait(0.2) -- ⚡ nhanh hơn
 
         local root = hrp()
-        if root and currentTargetModel and sharedPrimary then
-            if not canKeepCurrentTarget(root, sharedPrimary) then
+        local primary = sharedPrimary
+
+        if root and currentTargetModel and primary then
+            if not canKeepCurrentTarget(root, primary) then
                 currentTargetModel = nil
                 sharedPrimary = nil
             end
         end
     end
 end)
-local combatY = nil
-pcall(function()
+
+-- 🔥 LOAD COMBAT (FAST + SAFE)
+local combatY
+task.spawn(function()
     local scripts = plr:FindFirstChild("PlayerScripts")
-    if scripts then
-        local ok, result = pcall(function()
-            return require(scripts:FindFirstChild("CombatFramework"))
-        end)
-        if ok and result then
-            combatY = debug.getupvalues(result)[2]
-        end
+    if not scripts then return end
+
+    local ok, result = pcall(function()
+        return require(scripts:FindFirstChild("CombatFramework"))
+    end)
+
+    if ok and result then
+        combatY = debug.getupvalues(result)[2]
     end
 end)
 
-local _isSwinging    = false
-local _swingCooldown = 0
+local _isSwinging = false
 
+-- 🔥 ULTRA FAST COMBAT LOOP
 task.spawn(function()
-    game:GetService("RunService").RenderStepped:Connect(function(dt)
-        if not (combatY and typeof(combatY) == "table") then return end
-        pcall(function()
-            local ctrl = combatY.activeController
-            if not ctrl then return end
+    local RunService = game:GetService("RunService")
 
-            ctrl.hitboxMagnitude = 60
-            ctrl.timeToNextBlock = 0
-            ctrl.focusStart      = 1655503339.0980349
-            ctrl.increment       = 1
-            ctrl.blocking        = false
-            if ctrl.humanoid then
-                ctrl.humanoid.AutoRotate = true
-            end
+    RunService.RenderStepped:Connect(function()
+        local ctrl = combatY and combatY.activeController
+        if not ctrl then return end
 
-            local root = hrp()
-            local hasPrimary = sharedPrimary and isValidTargetEntry(sharedPrimary) and root
-                and (sharedPrimary.root.Position - root.Position).Magnitude <= CONFIG.SEARCH_RADIUS
+        -- 🔥 MAX BUFF
+        ctrl.hitboxMagnitude = 600
+        ctrl.timeToNextBlock = 0
+        ctrl.focusStart = 0
+        ctrl.increment = 3 -- ⚡ tăng speed hit
+        ctrl.blocking = false
 
-            if not hasPrimary then
-                ctrl.active    = false
-                ctrl.attacking = false
-                _isSwinging    = false
-            else
-                ctrl.active = false
-            end
-        end)
+        if ctrl.humanoid then
+            ctrl.humanoid.AutoRotate = false -- ⚡ giảm delay xoay
+        end
+
+        local root = hrp()
+        local primary = sharedPrimary
+
+        -- 🔥 FORCE ATTACK (BYPASS CHECK)
+        if primary and root then
+            ctrl.active = true
+            ctrl.attacking = true
+        else
+            ctrl.active = false
+            ctrl.attacking = false
+            _isSwinging = false
+        end
     end)
 end)
