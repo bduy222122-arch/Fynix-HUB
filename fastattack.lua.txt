@@ -15,10 +15,15 @@ local CONFIG = {
 }  
 
 local Net, registerHit, registerAttack
-pcall(function()
-    Net = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net"))
-    registerHit    = Net:RemoteEvent("RegisterHit")
-    registerAttack = Net:RemoteEvent("RegisterAttack")
+task.spawn(function()
+    local ok, res = pcall(function()
+        return require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net"))
+    end)
+    if ok and res then
+        Net = res
+        registerHit = Net:RemoteEvent("RegisterHit")
+        registerAttack = Net:RemoteEvent("RegisterAttack")
+    end
 end)
 
 local function dbg(...)
@@ -34,40 +39,45 @@ local function getHumanoid(model)
 end
 
 local function hrp()
-    return getRoot(plr.Character)
+    local char = plr.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
 end
 
 local function aliveModel(model)
-    local hum  = getHumanoid(model)
-    local root = getRoot(model)
-    return hum and root and hum.Health > 0
+    local hum = model and model:FindFirstChildOfClass("Humanoid")
+    return hum and hum.Health > 0 and model:FindFirstChild("HumanoidRootPart")
 end
 
 local prevPositions = {}
+local lastCleanup = 0
 
 local function getPredictedPosition(targetRoot)
     local now = tick()
     local cur = targetRoot.Position
-    local prev = prevPositions[targetRoot]
-    prevPositions[targetRoot] = { pos = cur, t = now }
 
-    -- Cleanup old entries to prevent memory leak
-    for key, val in pairs(prevPositions) do
-        if now - val.t > 5 then
-            prevPositions[key] = nil
+    local prev = prevPositions[targetRoot]
+    prevPositions[targetRoot] = {pos = cur, t = now}
+
+    -- 🔥 cleanup ít hơn (giảm lag)
+    if now - lastCleanup > 2 then
+        lastCleanup = now
+        for k,v in pairs(prevPositions) do
+            if now - v.t > 5 then
+                prevPositions[k] = nil
+            end
         end
     end
 
-    if prev and (now - prev.t) > 0 and (now - prev.t) < 0.5 then
-        local vel = (cur - prev.pos) / (now - prev.t)
-        return cur + vel * CONFIG.AIM_PREDICTION_FACTOR
+    if prev then
+        local dt = now - prev.t
+        if dt > 0 and dt < 0.4 then
+            return cur + (cur - prev.pos) / dt * CONFIG.AIM_PREDICTION_FACTOR
+        end
     end
 
-    local ok, vel = pcall(function() return targetRoot.AssemblyLinearVelocity end)
-    if ok and vel and vel.Magnitude > 0 then
-        -- Scale prediction by velocity magnitude
-        local scaleFactor = math.min(vel.Magnitude / 100, 1) * CONFIG.AIM_PREDICTION_FACTOR
-        return cur + vel * scaleFactor
+    local vel = targetRoot.AssemblyLinearVelocity
+    if vel.Magnitude > 0 then
+        return cur + vel * CONFIG.AIM_PREDICTION_FACTOR
     end
 
     return cur
@@ -75,88 +85,100 @@ end
 
 local function dir(origin, targetPos)
     local v = targetPos - origin
-    if v.Magnitude == 0 then return nil end
-    return v.Magnitude > CONFIG.ATTACK_RANGE and (v.Unit * CONFIG.ATTACK_RANGE) or v
+    local mag = v.Magnitude
+    if mag == 0 then return end
+    return mag > CONFIG.ATTACK_RANGE and v.Unit * CONFIG.ATTACK_RANGE or v
 end
 
+-- 🔥 CACHE REMOTE (SIÊU QUAN TRỌNG)
+local cachedRemote, cachedTool
+
 local function getRemote()
+    if cachedRemote and cachedTool and cachedTool.Parent then
+        return cachedRemote, cachedTool
+    end
+
     local char = plr.Character
     if char then
-        for _, v in ipairs(char:GetChildren()) do
+        for _,v in ipairs(char:GetChildren()) do
             if v:IsA("Tool") then
                 local r = v:FindFirstChild("LeftClickRemote", true)
-                if r then return r, v end
+                if r then
+                    cachedRemote, cachedTool = r, v
+                    return r, v
+                end
             end
         end
     end
-    for _, v in ipairs(plr.Backpack:GetChildren()) do
+
+    for _,v in ipairs(plr.Backpack:GetChildren()) do
         if v:IsA("Tool") then
             local r = v:FindFirstChild("LeftClickRemote", true)
-            if r then return r, v end
+            if r then
+                cachedRemote, cachedTool = r, v
+                return r, v
+            end
         end
     end
 end
 
 local function getEnv()
-    if typeof(getgenv) == "function" then
-        local ok, env = pcall(getgenv)
-        if ok and type(env) == "table" then return env end
-    end
+    local g = getgenv and getgenv()
+    return type(g) == "table" and g or nil
 end
 
 local function getTeamName(player)
-    local team = player and player.Team
-    return team and tostring(team.Name) or nil
+    local t = player and player.Team
+    return t and t.Name
 end
 
 local function isPvPEnabled(player)
     if not player then return false end
-    local ok, val = pcall(function() return player:GetAttribute("PvpDisabled") end)
-    if not ok then return true end  
-    return val ~= true
+    local v = player:GetAttribute("PvpDisabled")
+    return v ~= true
 end
 
 local function isEnemyPlayer(other)
-    if not other or other == plr then return false end
+    if other == plr then return false end
 
-    local char = other.Character
-    if not char then return false end
-    if not aliveModel(char) then return false end
+    local char = other and other.Character
+    if not char or not aliveModel(char) then return false end
 
-    local selfTeam  = getTeamName(plr)
-    local otherTeam = getTeamName(other)
+    local selfTeam = plr.Team and plr.Team.Name
+    local otherTeam = other.Team and other.Team.Name
 
-    local canAttack
-
+    -- 🔥 logic gọn hơn
     if selfTeam == "Marines" then
-        canAttack = otherTeam == "Pirates"
+        if otherTeam ~= "Pirates" then return false end
     elseif selfTeam == "Pirates" then
-        canAttack = otherTeam == "Marines" or otherTeam == "Pirates"
-    elseif selfTeam ~= nil and otherTeam ~= nil then
-        canAttack = selfTeam ~= otherTeam
-    else
-        canAttack = true
+        if otherTeam == "Pirates" then return false end
+    elseif selfTeam and otherTeam and selfTeam == otherTeam then
+        return false
     end
 
-    if not canAttack then return false end
-    if not isPvPEnabled(other) then return false end
-    return true
+    return isPvPEnabled(other)
 end
 
 local function getBountyTarget()
-    local env = getEnv()
-    local tp  = env and env.targ
-    if typeof(tp) == "Instance" and tp:IsA("Player") and isEnemyPlayer(tp) then
-        local char = tp.Character
-        return char, getRoot(char), "player"
+    local env = getgenv and getgenv()
+    local tp = env and env.targ
+
+    if typeof(tp) == "Instance" and tp:IsA("Player") then
+        if isEnemyPlayer(tp) then
+            local char = tp.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root then
+                return char, root, "player"
+            end
+        end
     end
 end
 
 local function isValidTargetEntry(entry)
     return entry
-        and entry.model
         and entry.root
         and entry.root.Parent
+        and entry.model
         and aliveModel(entry.model)
 end
 
@@ -314,78 +336,83 @@ local lastAttackTime = 0
 local ATTACK_COOLDOWN = 1e-8  -- 100ms
 
 task.spawn(function()
+    local cachedRemote = getRemote()
+
     while true do
-        task.wait(0) -- ⚡ nhanh hơn nhưng vẫn ổn định
+        task.wait(0.015) -- ⚡ mượt + không đốt CPU
 
         local now = tick()
         if now - lastAttackTime < ATTACK_COOLDOWN then continue end
 
         local root = hrp()
-        local remote = getRemote()
-        if not root or not remote then continue end
+        if not root then continue end
 
-        -- 🔥 cache targets (giảm gọi hàm)
-        sharedTargets = gatherTargets(root)
-        local primary = getLockedTarget(root, sharedTargets)
-        sharedPrimary = primary
+        -- 🔥 chỉ update target mỗi 0.05s
+        if not _lastTargetUpdate or now - _lastTargetUpdate > 0.05 then
+            sharedTargets = gatherTargets(root)
+            sharedPrimary = getLockedTarget(root, sharedTargets)
+            _lastTargetUpdate = now
+        end
 
+        local primary = sharedPrimary
         if not primary then
             currentTargetModel = nil
             continue
         end
 
-        -- 🔥 check nhanh
         if shouldAttackNow(root, primary) then
-            fireAt(remote, root.Position, primary.root, primary.kind == "player")
+            fireAt(cachedRemote, root.Position, primary.root, primary.kind == "player")
             lastAttackTime = now
         end
     end
 end)
 task.spawn(function()
-    while task.wait(0.08) do
-        pcall(function()
-            local root   = hrp()
-            local remote = getRemote()
-            if not root or not remote then return end
+    while true do
+        task.wait(0.06) -- ⚡ nhẹ hơn
 
-            local primary = sharedPrimary
-            if not primary or not shouldAttackNow(root, primary) then return end
+        local root = hrp()
+        if not root then continue end
 
-            local hitData = buildHitList(sharedTargets, primary)
-            if #hitData == 0 then return end
+        local primary = sharedPrimary
+        if not primary or not shouldAttackNow(root, primary) then continue end
 
-            if registerHit then
-                if registerAttack then registerAttack:FireServer() end
-                registerHit:FireServer(
-                    primary.root, hitData, nil, nil,
-                    tostring(math.random(100000, 999999))
-                )
-            else
-                for i = 2, #hitData do
-                    local extraRoot = hitData[i][2]
-                    if extraRoot then
-                        local isP = Players:GetPlayerFromCharacter(hitData[i][1]) ~= nil
-                        fireAt(remote, root.Position, extraRoot, isP)
-                    end
+        local hitData = buildHitList(sharedTargets, primary)
+        if #hitData == 0 then continue end
+
+        if registerHit then
+            if registerAttack then registerAttack:FireServer() end
+            registerHit:FireServer(
+                primary.root,
+                hitData,
+                nil,
+                nil,
+                tostring(math.random(100000, 999999))
+            )
+        else
+            for i = 2, #hitData do
+                local extraRoot = hitData[i][2]
+                if extraRoot then
+                    fireAt(nil, root.Position, extraRoot, false)
                 end
             end
-        end)
+        end
     end
 end)
 
 -- Periodic target validation to prevent locking on distant targets
 task.spawn(function()
-    while task.wait(0.5) do
-        pcall(function()
-            local root = hrp()
-            if root and currentTargetModel and sharedPrimary and not canKeepCurrentTarget(root, sharedPrimary) then
+    while true do
+        task.wait(0.4)
+
+        local root = hrp()
+        if root and currentTargetModel and sharedPrimary then
+            if not canKeepCurrentTarget(root, sharedPrimary) then
                 currentTargetModel = nil
                 sharedPrimary = nil
             end
-        end)
+        end
     end
 end)
-
 local combatY = nil
 pcall(function()
     local scripts = plr:FindFirstChild("PlayerScripts")
