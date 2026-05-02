@@ -1882,14 +1882,13 @@ local UIS = game:GetService("UserInputService")
 
 task.spawn(function()
     while true do
-        task.wait(0.1) -- tốc độ click
+        task.wait() -- ⚡ nhanh nhất executor cho phép
 
-        -- 🔥 chỉ auto khi người dùng KHÔNG bấm chuột
-        if not UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-            local pos = UIS:GetMouseLocation()
+        if not game:GetService("UserInputService"):IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+            local pos = game:GetService("UserInputService"):GetMouseLocation()
 
-            VirtualInputManager:SendMouseButtonEvent(pos.X, pos.Y, 0, true, game, 0)
-            VirtualInputManager:SendMouseButtonEvent(pos.X, pos.Y, 0, false, game, 0)
+            game:GetService("VirtualInputManager"):SendMouseButtonEvent(pos.X,pos.Y,0,true,game,0)
+            game:GetService("VirtualInputManager"):SendMouseButtonEvent(pos.X,pos.Y,0,false,game,0)
         end
     end
 end)
