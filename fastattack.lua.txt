@@ -507,4 +507,1371 @@ task.spawn(function()
         end
     end
 end)
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local plr = Players.LocalPlayer
+local enemiesFolder = workspace:WaitForChild("Enemies")
+
+local CONFIG = {
+    ATTACK_RANGE = 650,
+    SEARCH_RADIUS = 2500,
+    MAX_HIT_TARGETS = 20,
+    PLAYER_AUTO_ATTACK_DISTANCE = 9999,
+    MOB_AUTO_ATTACK_DISTANCE = 200,
+    AIM_PREDICTION_FACTOR = 0.12,
+    DEBUG = true,
+}  
+
+local Net, registerHit, registerAttack
+pcall(function()
+    Net = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net"))
+    registerHit    = Net:RemoteEvent("RegisterHit")
+    registerAttack = Net:RemoteEvent("RegisterAttack")
+end)
+
+local function dbg(...)
+    if CONFIG.DEBUG then print("[AutoAtk]", ...) end
+end
+
+local function getRoot(model)
+    return model and (model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso"))
+end
+
+local function getHumanoid(model)
+    return model and model:FindFirstChildOfClass("Humanoid")
+end
+
+local function hrp()
+    return getRoot(plr.Character)
+end
+
+local function aliveModel(model)
+    local hum  = getHumanoid(model)
+    local root = getRoot(model)
+    return hum and root and hum.Health > 0
+end
+
+local prevPositions = {}
+
+local function getPredictedPosition(targetRoot)
+    local now = tick()
+    local cur = targetRoot.Position
+    local prev = prevPositions[targetRoot]
+    prevPositions[targetRoot] = { pos = cur, t = now }
+
+    -- Cleanup old entries to prevent memory leak
+    for key, val in pairs(prevPositions) do
+        if now - val.t > 5 then
+            prevPositions[key] = nil
+        end
+    end
+
+    if prev and (now - prev.t) > 0 and (now - prev.t) < 0.5 then
+        local vel = (cur - prev.pos) / (now - prev.t)
+        return cur + vel * CONFIG.AIM_PREDICTION_FACTOR
+    end
+
+    local ok, vel = pcall(function() return targetRoot.AssemblyLinearVelocity end)
+    if ok and vel and vel.Magnitude > 0 then
+        -- Scale prediction by velocity magnitude
+        local scaleFactor = math.min(vel.Magnitude / 100, 1) * CONFIG.AIM_PREDICTION_FACTOR
+        return cur + vel * scaleFactor
+    end
+
+    return cur
+end
+
+local function dir(origin, targetPos)
+    local v = targetPos - origin
+    if v.Magnitude == 0 then return nil end
+    return v.Magnitude > CONFIG.ATTACK_RANGE and (v.Unit * CONFIG.ATTACK_RANGE) or v
+end
+
+local function getRemote()
+    local char = plr.Character
+    if char then
+        for _, v in ipairs(char:GetChildren()) do
+            if v:IsA("Tool") then
+                local r = v:FindFirstChild("LeftClickRemote", true)
+                if r then return r, v end
+            end
+        end
+    end
+    for _, v in ipairs(plr.Backpack:GetChildren()) do
+        if v:IsA("Tool") then
+            local r = v:FindFirstChild("LeftClickRemote", true)
+            if r then return r, v end
+        end
+    end
+end
+
+local function getEnv()
+    if typeof(getgenv) == "function" then
+        local ok, env = pcall(getgenv)
+        if ok and type(env) == "table" then return env end
+    end
+end
+
+local function getTeamName(player)
+    local team = player and player.Team
+    return team and tostring(team.Name) or nil
+end
+
+local function isPvPEnabled(player)
+    if not player then return false end
+    local ok, val = pcall(function() return player:GetAttribute("PvpDisabled") end)
+    if not ok then return true end  
+    return val ~= true
+end
+
+local function isEnemyPlayer(other)
+    if not other or other == plr then return false end
+
+    local char = other.Character
+    if not char then return false end
+    if not aliveModel(char) then return false end
+
+    local selfTeam  = getTeamName(plr)
+    local otherTeam = getTeamName(other)
+
+    local canAttack
+
+    if selfTeam == "Marines" then
+        canAttack = otherTeam == "Pirates"
+    elseif selfTeam == "Pirates" then
+        canAttack = otherTeam == "Marines" or otherTeam == "Pirates"
+    elseif selfTeam ~= nil and otherTeam ~= nil then
+        canAttack = selfTeam ~= otherTeam
+    else
+        canAttack = true
+    end
+
+    if not canAttack then return false end
+    if not isPvPEnabled(other) then return false end
+    return true
+end
+
+local function getBountyTarget()
+    local env = getEnv()
+    local tp  = env and env.targ
+    if typeof(tp) == "Instance" and tp:IsA("Player") and isEnemyPlayer(tp) then
+        local char = tp.Character
+        return char, getRoot(char), "player"
+    end
+end
+
+local function isValidTargetEntry(entry)
+    return entry
+        and entry.model
+        and entry.root
+        and entry.root.Parent
+        and aliveModel(entry.model)
+end
+
+local function getTargetDistance(root, targetRoot)
+    if not root or not targetRoot then return math.huge end
+    return (targetRoot.Position - root.Position).Magnitude
+end
+
+local function gatherTargets(root)
+    local targets     = {}
+    local forcedModel, forcedRoot, forcedKind = getBountyTarget()
+
+    local function push(model, targetRoot, kind, priority)
+        if not model or not targetRoot then return end
+        local distance = (targetRoot.Position - root.Position).Magnitude
+        if distance > CONFIG.SEARCH_RADIUS then return end
+        if kind == "mob" and distance > CONFIG.MOB_AUTO_ATTACK_DISTANCE then return end
+
+        table.insert(targets, {
+            model    = model,
+            root     = targetRoot,
+            kind     = kind,
+            priority = priority,
+            distance = distance,
+        })
+    end
+
+    if forcedModel and forcedRoot then
+        push(forcedModel, forcedRoot, forcedKind, -99)
+    end
+
+    for _, other in ipairs(Players:GetPlayers()) do
+        if isEnemyPlayer(other) and other.Character ~= forcedModel then
+            push(other.Character, getRoot(other.Character), "player", -10)
+        end
+    end
+
+    local hasPlayer = false
+    for _, t in ipairs(targets) do
+        if t.kind == "player" then hasPlayer = true; break end
+    end
+
+    if not hasPlayer then
+        for _, mob in ipairs(enemiesFolder:GetChildren()) do
+            if aliveModel(mob) then
+                push(mob, getRoot(mob), "mob", 10)
+            end
+        end
+    end
+
+    table.sort(targets, function(a, b)
+        if a.priority ~= b.priority then return a.priority < b.priority end
+        return a.distance < b.distance
+    end)
+
+    return targets
+end
+
+local currentTargetModel = nil
+
+local function getPrimaryPlayerTarget(targets)
+    for i = 1, #targets do
+        local e = targets[i]
+        if isValidTargetEntry(e) and e.kind == "player" then return e end
+    end
+end
+
+local function getPrimaryTarget(targets)
+    for i = 1, #targets do
+        if isValidTargetEntry(targets[i]) then return targets[i] end
+    end
+end
+
+local function canKeepCurrentTarget(root, entry)
+    if not root or not isValidTargetEntry(entry) then return false end
+
+    if entry.kind == "player" then
+        return getTargetDistance(root, entry.root) <= CONFIG.SEARCH_RADIUS
+    end
+    return getTargetDistance(root, entry.root) <= CONFIG.MOB_AUTO_ATTACK_DISTANCE
+end
+
+local function getLockedTarget(root, targets)
+    local playerTarget = getPrimaryPlayerTarget(targets)
+    if playerTarget then
+        currentTargetModel = playerTarget.model
+        return playerTarget
+    end
+
+    if currentTargetModel then
+        for i = 1, #targets do
+            local e = targets[i]
+            if e.model == currentTargetModel and canKeepCurrentTarget(root, e) then
+                return e
+            end
+        end
+    end
+
+    local primary = getPrimaryTarget(targets)
+    currentTargetModel = primary and primary.model or nil
+    return primary
+end
+
+local function shouldAttackNow(root, entry)
+    if not entry then return false end
+    if entry.kind == "player" then return true end
+    return getTargetDistance(root, entry.root) <= CONFIG.MOB_AUTO_ATTACK_DISTANCE
+end
+
+local function buildHitList(targets, primaryEntry)
+    local hitData = {}
+    local seen    = {}
+
+    if primaryEntry and isValidTargetEntry(primaryEntry) then
+        hitData[1]                    = { primaryEntry.model, primaryEntry.root }
+        seen[primaryEntry.model]      = true
+    end
+
+    for i = 1, #targets do
+        if #hitData >= CONFIG.MAX_HIT_TARGETS then break end
+        local e = targets[i]
+        if not seen[e.model] and isValidTargetEntry(e) and e.kind == "player" then
+            hitData[#hitData + 1] = { e.model, e.root }
+            seen[e.model] = true
+        end
+    end
+
+    for i = 1, #targets do
+        if #hitData >= CONFIG.MAX_HIT_TARGETS then break end
+        local e = targets[i]
+        if not seen[e.model] and isValidTargetEntry(e)
+            and e.kind == "mob" and e.distance <= CONFIG.MOB_AUTO_ATTACK_DISTANCE
+        then
+            hitData[#hitData + 1] = { e.model, e.root }
+            seen[e.model] = true
+        end
+    end
+
+    return hitData
+end
+
+local function fireAt(remote, origin, targetRoot, isPlayer)
+    if not remote or not origin or not targetRoot then return end
+    local aimPos  = isPlayer and getPredictedPosition(targetRoot) or targetRoot.Position
+    local fireVec = dir(origin, aimPos)
+    if fireVec then
+        remote:FireServer(fireVec, 1, true)
+    end
+end
+
+local sharedTargets  = {}
+local sharedPrimary  = nil
+local _lastDebugTick = 0
+local lastAttackTime = 0
+local ATTACK_COOLDOWN = 0  -- 100ms
+
+task.spawn(function()
+    while task.wait(0.03) do
+        pcall(function()
+            local now = tick()
+            if now - lastAttackTime < ATTACK_COOLDOWN then return end
+
+            local root   = hrp()
+            local remote = getRemote()
+
+            if not root or not remote then
+                if tick() - _lastDebugTick > 3 then
+                    _lastDebugTick = tick()
+                    dbg("WARN root=" .. tostring(root ~= nil) .. " remote=" .. tostring(remote ~= nil))
+                end
+                return
+            end
+
+            sharedTargets = gatherTargets(root)
+            sharedPrimary = getLockedTarget(root, sharedTargets)
+
+            if tick() - _lastDebugTick > 3 then
+                _lastDebugTick = tick()
+                local pc, mc = 0, 0
+                for _, t in ipairs(sharedTargets) do
+                    if t.kind == "player" then pc += 1 else mc += 1 end
+                end
+                dbg(("targets=%dp+%dm | primary=%s(%s)"):format(
+                    pc, mc,
+                    sharedPrimary and sharedPrimary.model.Name or "nil",
+                    sharedPrimary and sharedPrimary.kind or "-"
+                ))
+                for _, other in ipairs(Players:GetPlayers()) do
+                    if other ~= plr then
+                        dbg(("  %s alive=%s pvp=%s team=%s→%s enemy=%s"):format(
+                            other.Name,
+                            tostring(other.Character and aliveModel(other.Character)),
+                            tostring(isPvPEnabled(other)),
+                            tostring(getTeamName(plr)),
+                            tostring(getTeamName(other)),
+                            tostring(isEnemyPlayer(other))
+                        ))
+                    end
+                end
+            end
+
+            if not sharedPrimary then currentTargetModel = nil; return end
+
+            if shouldAttackNow(root, sharedPrimary) then
+                fireAt(remote, root.Position, sharedPrimary.root, sharedPrimary.kind == "player")
+                lastAttackTime = now
+            end
+        end)
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.08) do
+        pcall(function()
+            local root   = hrp()
+            local remote = getRemote()
+            if not root or not remote then return end
+
+            local primary = sharedPrimary
+            if not primary or not shouldAttackNow(root, primary) then return end
+
+            local hitData = buildHitList(sharedTargets, primary)
+            if #hitData == 0 then return end
+
+            if registerHit then
+                if registerAttack then registerAttack:FireServer() end
+                registerHit:FireServer(
+                    primary.root, hitData, nil, nil,
+                    tostring(math.random(100000, 999999))
+                )
+            else
+                for i = 2, #hitData do
+                    local extraRoot = hitData[i][2]
+                    if extraRoot then
+                        local isP = Players:GetPlayerFromCharacter(hitData[i][1]) ~= nil
+                        fireAt(remote, root.Position, extraRoot, isP)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- Periodic target validation to prevent locking on distant targets
+task.spawn(function()
+    while task.wait(0.5) do
+        pcall(function()
+            local root = hrp()
+            if root and currentTargetModel and sharedPrimary and not canKeepCurrentTarget(root, sharedPrimary) then
+                currentTargetModel = nil
+                sharedPrimary = nil
+            end
+        end)
+    end
+end)
+
+local combatY = nil
+pcall(function()
+    local scripts = plr:FindFirstChild("PlayerScripts")
+    if scripts then
+        local ok, result = pcall(function()
+            return require(scripts:FindFirstChild("CombatFramework"))
+        end)
+        if ok and result then
+            combatY = debug.getupvalues(result)[2]
+        end
+    end
+end)
+
+local _isSwinging    = false
+local _swingCooldown = 0
+
+task.spawn(function()
+    game:GetService("RunService").RenderStepped:Connect(function(dt)
+        if not (combatY and typeof(combatY) == "table") then return end
+        pcall(function()
+            local ctrl = combatY.activeController
+            if not ctrl then return end
+
+            ctrl.hitboxMagnitude = 60
+            ctrl.timeToNextBlock = 0
+            ctrl.focusStart      = 1655503339.0980349
+            ctrl.increment       = 1
+            ctrl.blocking        = false
+            if ctrl.humanoid then
+                ctrl.humanoid.AutoRotate = true
+            end
+
+            local root = hrp()
+            local hasPrimary = sharedPrimary and isValidTargetEntry(sharedPrimary) and root
+                and (sharedPrimary.root.Position - root.Position).Magnitude <= CONFIG.SEARCH_RADIUS
+
+            if not hasPrimary then
+                ctrl.active    = false
+                ctrl.attacking = false
+                _isSwinging    = false
+            else
+                ctrl.active = false
+            end
+        end)
+    end)
+end)
+loadstring(game:HttpGet("https://raw.githubusercontent.com/AnhDzaiScript/Setting/refs/heads/main/FastMax.lua"))()
+local function GetBladeHits()
+    local targets = {}
+    local function GetDistance(v)
+        return (v.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+    end
+    
+    for _, part in pairs({game.Workspace.Enemies, game.Workspace.Characters}) do
+        for _, v in pairs(part:GetChildren()) do
+            if v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Head") and v:FindFirstChild("Humanoid") then
+                if GetDistance(v.HumanoidRootPart) < 60 then
+                    table.insert(targets, v)
+                end
+            end
+        end
+    end
+
+    return targets
+end
+
+local function AttackAll()
+    local player = game.Players.LocalPlayer
+    local character = player.Character
+    if not character then return end
+
+    local equippedWeapon = character:FindFirstChild("EquippedWeapon")
+    if not equippedWeapon then return end
+
+
+    local enemies = GetBladeHits()
+    if #enemies > 0 then
+        local netModule = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
+        netModule:WaitForChild("RE/RegisterAttack"):FireServer(-math.huge)
+        
+        local args = {nil, {}}
+        for i, v in pairs(enemies) do
+            if not args[1] then
+                args[1] = v.Head
+            end
+            args[2][i] = {v, v.HumanoidRootPart}
+        end
+        
+        netModule:WaitForChild("RE/RegisterHit"):FireServer(unpack(args))
+    end
+end
+
+spawn(function()
+    while task.wait() do AttackAll() end
+end)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local Player = Players.LocalPlayer
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local Net = Modules:WaitForChild("Net")
+local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
+local RegisterHit = Net:WaitForChild("RE/RegisterHit")
+local ShootGunEvent = Net:WaitForChild("RE/ShootGunEvent")
+local GunValidator = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Validator2")
+
+local Config = {
+    AttackDistance = 65,
+    AttackMobs = true,
+    AttackPlayers = true,
+    AttackCooldown = 0.2,
+    ComboResetTime = 0.3,
+    MaxCombo = 4,
+    HitboxLimbs = {"RightLowerArm", "RightUpperArm", "LeftLowerArm", "LeftUpperArm", "RightHand", "LeftHand"},
+    AutoClickEnabled = true
+}
+
+local FastAttack = {}
+FastAttack.__index = FastAttack
+
+function FastAttack.new()
+    local self = setmetatable({
+        Debounce = 0,
+        ComboDebounce = 0,
+        ShootDebounce = 0,
+        M1Combo = 0,
+        EnemyRootPart = nil,
+        Connections = {},
+        Overheat = {Dragonstorm = {MaxOverheat = 3, Cooldown = 0, TotalOverheat = 0, Distance = 350, Shooting = false}},
+        ShootsPerTarget = {["Dual Flintlock"] = 2},
+        SpecialShoots = {["Skull Guitar"] = "TAP", ["Bazooka"] = "Position", ["Cannon"] = "Position", ["Dragonstorm"] = "Overheat"}
+    }, FastAttack)
+    
+    pcall(function()
+        self.CombatFlags = require(Modules.Flags).COMBAT_REMOTE_THREAD
+        self.ShootFunction = getupvalue(require(ReplicatedStorage.Controllers.CombatController).Attack, 9)
+        local LocalScript = Player:WaitForChild("PlayerScripts"):FindFirstChildOfClass("LocalScript")
+        if LocalScript and getsenv then
+            self.HitFunction = getsenv(LocalScript)._G.SendHitsToServer
+        end
+    end)
+    
+    return self
+end
+
+function FastAttack:IsEntityAlive(entity)
+    local humanoid = entity and entity:FindFirstChild("Humanoid")
+    return humanoid and humanoid.Health > 0
+end
+
+function FastAttack:CheckStun(Character, Humanoid, ToolTip)
+    local Stun = Character:FindFirstChild("Stun")
+    local Busy = Character:FindFirstChild("Busy")
+    if Humanoid.Sit and (ToolTip == "Sword" or ToolTip == "Melee" or ToolTip == "Blox Fruit") then
+        return false
+    elseif Stun and Stun.Value > 0 or Busy and Busy.Value then
+        return false
+    end
+    return true
+end
+
+function FastAttack:GetBladeHits(Character, Distance)
+    local Position = Character:GetPivot().Position
+    local BladeHits = {}
+    Distance = Distance or Config.AttackDistance
+    
+    local function ProcessTargets(Folder, CanAttack)
+        for _, Enemy in ipairs(Folder:GetChildren()) do
+            if Enemy ~= Character and self:IsEntityAlive(Enemy) then
+                local BasePart = Enemy:FindFirstChild(Config.HitboxLimbs[math.random(#Config.HitboxLimbs)]) or Enemy:FindFirstChild("HumanoidRootPart")
+                if BasePart and (Position - BasePart.Position).Magnitude <= Distance then
+                    if not self.EnemyRootPart then
+                        self.EnemyRootPart = BasePart
+                    else
+                        table.insert(BladeHits, {Enemy, BasePart})
+                    end
+                end
+            end
+        end
+    end
+    
+    if Config.AttackMobs then ProcessTargets(Workspace.Enemies) end
+    if Config.AttackPlayers then ProcessTargets(Workspace.Characters, true) end
+    
+    return BladeHits
+end
+
+function FastAttack:GetClosestEnemy(Character, Distance)
+    local BladeHits = self:GetBladeHits(Character, Distance)
+    local Closest, MinDistance = nil, math.huge
+    
+    for _, Hit in ipairs(BladeHits) do
+        local Magnitude = (Character:GetPivot().Position - Hit[2].Position).Magnitude
+        if Magnitude < MinDistance then
+            MinDistance = Magnitude
+            Closest = Hit[2]
+        end
+    end
+    return Closest
+end
+
+function FastAttack:GetCombo()
+    local Combo = (tick() - self.ComboDebounce) <= Config.ComboResetTime and self.M1Combo or 0
+    Combo = Combo >= Config.MaxCombo and 1 or Combo + 1
+    self.ComboDebounce = tick()
+    self.M1Combo = Combo
+    return Combo
+end
+
+function FastAttack:ShootInTarget(TargetPosition)
+    local Character = Player.Character
+    if not self:IsEntityAlive(Character) then return end
+    
+    local Equipped = Character:FindFirstChildOfClass("Tool")
+    if not Equipped or Equipped.ToolTip ~= "Gun" then return end
+    
+    local Cooldown = Equipped:FindFirstChild("Cooldown") and Equipped.Cooldown.Value or 0.3
+    if (tick() - self.ShootDebounce) < Cooldown then return end
+    
+    local ShootType = self.SpecialShoots[Equipped.Name] or "Normal"
+    if ShootType == "Position" or (ShootType == "TAP" and Equipped:FindFirstChild("RemoteEvent")) then
+        Equipped:SetAttribute("LocalTotalShots", (Equipped:GetAttribute("LocalTotalShots") or 0) + 1)
+        GunValidator:FireServer(self:GetValidator2())
+        
+        if ShootType == "TAP" then
+            Equipped.RemoteEvent:FireServer("TAP", TargetPosition)
+        else
+            ShootGunEvent:FireServer(TargetPosition)
+        end
+        self.ShootDebounce = tick()
+    else
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+        task.wait(0.05)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+        self.ShootDebounce = tick()
+    end
+end
+
+function FastAttack:GetValidator2()
+    local v1 = getupvalue(self.ShootFunction, 15)
+    local v2 = getupvalue(self.ShootFunction, 13)
+    local v3 = getupvalue(self.ShootFunction, 16)
+    local v4 = getupvalue(self.ShootFunction, 17)
+    local v5 = getupvalue(self.ShootFunction, 14)
+    local v6 = getupvalue(self.ShootFunction, 12)
+    local v7 = getupvalue(self.ShootFunction, 18)
+    
+    local v8 = v6 * v2
+    local v9 = (v5 * v2 + v6 * v1) % v3
+    v9 = (v9 * v3 + v8) % v4
+    v5 = math.floor(v9 / v3)
+    v6 = v9 - v5 * v3
+    v7 = v7 + 1
+    
+    setupvalue(self.ShootFunction, 15, v1)
+    setupvalue(self.ShootFunction, 13, v2)
+    setupvalue(self.ShootFunction, 16, v3)
+    setupvalue(self.ShootFunction, 17, v4)
+    setupvalue(self.ShootFunction, 14, v5)
+    setupvalue(self.ShootFunction, 12, v6)
+    setupvalue(self.ShootFunction, 18, v7)
+    
+    return math.floor(v9 / v4 * 16777215), v7
+end
+
+function FastAttack:UseNormalClick(Character, Humanoid, Cooldown)
+    self.EnemyRootPart = nil
+    local BladeHits = self:GetBladeHits(Character)
+    
+    if self.EnemyRootPart then
+        RegisterAttack:FireServer(Cooldown)
+        if self.CombatFlags and self.HitFunction then
+            self.HitFunction(self.EnemyRootPart, BladeHits)
+        else
+            RegisterHit:FireServer(self.EnemyRootPart, BladeHits)
+        end
+    end
+end
+
+function FastAttack:UseFruitM1(Character, Equipped, Combo)
+    local Targets = self:GetBladeHits(Character)
+    if not Targets[1] then return end
+    
+    local Direction = (Targets[1][2].Position - Character:GetPivot().Position).Unit
+    Equipped.LeftClickRemote:FireServer(Direction, Combo)
+end
+
+function FastAttack:Attack()
+    if not Config.AutoClickEnabled or (tick() - self.Debounce) < Config.AttackCooldown then return end
+    local Character = Player.Character
+    if not Character or not self:IsEntityAlive(Character) then return end
+    
+    local Humanoid = Character.Humanoid
+    local Equipped = Character:FindFirstChildOfClass("Tool")
+    if not Equipped then return end
+    
+    local ToolTip = Equipped.ToolTip
+    if not table.find({"Melee", "Blox Fruit", "Sword", "Gun"}, ToolTip) then return end
+    
+    local Cooldown = Equipped:FindFirstChild("Cooldown") and Equipped.Cooldown.Value or Config.AttackCooldown
+    if not self:CheckStun(Character, Humanoid, ToolTip) then return end
+    
+    local Combo = self:GetCombo()
+    Cooldown = Cooldown + (Combo >= Config.MaxCombo and 0.05 or 0)
+    self.Debounce = Combo >= Config.MaxCombo and ToolTip ~= "Gun" and (tick() + 0.05) or tick()
+    
+    if ToolTip == "Blox Fruit" and Equipped:FindFirstChild("LeftClickRemote") then
+        self:UseFruitM1(Character, Equipped, Combo)
+    elseif ToolTip == "Gun" then
+        local Target = self:GetClosestEnemy(Character, 120)
+        if Target then
+            self:ShootInTarget(Target.Position)
+        end
+    else
+        self:UseNormalClick(Character, Humanoid, Cooldown)
+    end
+end
+
+local AttackInstance = FastAttack.new()
+table.insert(AttackInstance.Connections, RunService.Stepped:Connect(function()
+    AttackInstance:Attack()
+end))
+
+for _, v in pairs(getgc(true)) do
+    if typeof(v) == "function" and iscclosure(v) then
+        local name = debug.getinfo(v).name
+        if name == "Attack" or name == "attack" or name == "RegisterHit" then
+            hookfunction(v, function(...)
+                AttackInstance:Attack()
+                return v(...)
+            end)
+        end
+    end
+end
+---Fast 2 ---
+local Modules = game.ReplicatedStorage.Modules
+local Net = Modules.Net
+local Register_Hit, Register_Attack = Net:WaitForChild("RE/RegisterHit"), Net:WaitForChild("RE/RegisterAttack")
+local Funcs = {}
+function GetAllBladeHits()
+    bladehits = {}
+    for _, v in pairs(workspace.Enemies:GetChildren()) do
+        if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 
+        and (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= 65 then
+            table.insert(bladehits, v)
+        end
+    end
+    return bladehits
+end
+function Getplayerhit()
+    bladehits = {}
+    for _, v in pairs(workspace.Characters:GetChildren()) do
+        if v.Name ~= game.Players.LocalPlayer.Name and v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 
+        and (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= 65 then
+            table.insert(bladehits, v)
+        end
+    end
+    return bladehits
+end
+function Funcs:Attack()
+    local bladehits = {}
+    for r,v in pairs(GetAllBladeHits()) do
+        table.insert(bladehits, v)
+    end
+    for r,v in pairs(Getplayerhit()) do
+        table.insert(bladehits, v)
+    end
+    if #bladehits == 0 then return end
+    local args = {
+        [1] = nil;
+        [2] = {},
+        [4] = "078da341"
+    }
+    for r, v in pairs(bladehits) do
+        Register_Attack:FireServer(0)
+        if not args[1] then
+            args[1] = v.Head
+        end
+        args[2][r] = {
+            [1] = v,
+            [2] = v.HumanoidRootPart
+        }
+    end
+    Register_Hit:FireServer(unpack(args))
+end
+local DanhNhanhBuCu36 = {}
+local HacNoCu = {}
+local BuCuAnhKo = {}
+
+--36
+
+local B1 = {}
+local B2 = {}
+local B3 = {}
+local B4 = {}
+local B5 = {}
+local B6 = {}
+local B7 = {}
+--67
+
+
+local X001 = game
+local X002 = X001:GetService("Players")
+
+--36
+
+
+
+
+
+local X003 = X001:GetService("RunService")
+local X004 = X001:GetService("ReplicatedStorage")
+
+--67
+
+
+
+
+local X005 = X001:GetService("Workspace")
+local X006 = X002.LocalPlayer
+
+--36
+
+local X007 = X006.Character or X006.CharacterAdded:Wait()
+local function DanhNhanhBuCu36_Wait(a, b)
+
+--67
+
+    local s, r = pcall(function()
+        return a:WaitForChild(b)
+    end)
+    return r
+end
+
+--36
+
+local X008 = DanhNhanhBuCu36_Wait(X005, "Enemies")
+local X009 = DanhNhanhBuCu36_Wait(X005, "Characters")
+
+--67
+
+local X010 = DanhNhanhBuCu36_Wait(X004, "Modules")
+local X011 = DanhNhanhBuCu36_Wait(X010, "Net")
+
+--36
+
+DanhNhanhBuCu36.Rate = 0.000000002
+DanhNhanhBuCu36.Enabled = true
+
+--67
+
+function DanhNhanhBuCu36.CoreCheck(a)
+    local h = a:FindFirstChild("Humanoid")
+    if h and h.Health > 0 then
+        return true
+    end
+
+--36
+
+    return false
+end
+
+function DanhNhanhBuCu36.PositionScan(ch, folder)
+
+--67
+
+    local p = ch:GetPivot().Position
+    local t = {}
+    local l = folder:GetChildren()
+    for i = 1, #l do
+        local m = l[i]
+        local h1 = m:FindFirstChild("Humanoid")
+
+--36
+
+        local h2 = m:FindFirstChild("HumanoidRootPart")
+        if h1 and h2 and h1.Health > 0 then
+            local d = (h2.Position - p).Magnitude
+
+--67
+
+            if d <= 60 then
+                t[#t+1] = m
+            end
+        end
+    end
+    return t
+end
+
+--36
+
+function DanhNhanhBuCu36.HeadExtract(list)
+    local result = {}
+    local c = #list
+
+--67
+
+    for i = 1, c do
+        local v = list[i]
+        local h = v:FindFirstChild("Head") or v.PrimaryPart
+        if h then
+            result[#result+1] = {v, h}
+        end
+    end
+    return result
+end
+
+--36
+
+function DanhNhanhBuCu36.CollectAll(ch)
+    local a = DanhNhanhBuCu36.PositionScan(ch, X008)
+    local b = DanhNhanhBuCu36.PositionScan(ch, X009)
+
+--67
+
+    local final = {}
+    for i=1,#a do final[#final+1] = a[i] end
+    for i=1,#b do final[#final+1] = b[i] end
+    return final
+end
+
+--36
+
+function DanhNhanhBuCu36.FastCore()
+    local c = X006.Character
+    if not c then return end
+
+--67
+
+    local tool = c:FindFirstChildOfClass("Tool")
+    if not tool then return end
+
+    local mobs = DanhNhanhBuCu36.CollectAll(c)
+    if #mobs < 1 then return end
+
+--36
+
+    local parts = DanhNhanhBuCu36.HeadExtract(mobs)
+    if #parts < 1 then return end
+
+    local A = X011["RE/RegisterAttack"]
+    local B = X011["RE/RegisterHit"]
+
+--67
+
+    A:FireServer(DanhNhanhBuCu36.Rate)
+    local head = parts[1][2]
+    B:FireServer(head, parts)
+end
+
+--36
+
+local REMOTE_TARGET
+local REMOTE_ID
+
+--67
+
+local function HacNoCu_Init()
+    local listA = {
+        X004.Util,
+        X004.Common,
+        X004.Remotes,
+
+--36
+
+        X004.Assets,
+        X004.FX
+    }
+
+    for _, c in next, listA do
+        local kids = c:GetChildren()
+
+--67
+
+        for _, n in next, kids do
+            if n:IsA("RemoteEvent") and n:GetAttribute("Id") then
+                REMOTE_TARGET = n
+                REMOTE_ID = n:GetAttribute("Id")
+            end
+        end
+
+--36
+
+        c.ChildAdded:Connect(function(n)
+            if n:IsA("RemoteEvent") and n:GetAttribute("Id") then
+                REMOTE_TARGET = n
+                REMOTE_ID = n:GetAttribute("Id")
+            end
+        end)
+    end
+end
+
+--67
+
+HacNoCu_Init()
+
+function HacNoCu.Execute()
+    local ch = X006.Character
+    if not ch then return end
+
+--36
+
+    local HRP = ch:FindFirstChild("HumanoidRootPart")
+    if not HRP then return end
+
+    local gather = {}
+
+    local function Q(folder)
+
+--67
+
+        local l = folder:GetChildren()
+        for i=1,#l do
+            local mob = l[i]
+            local hm = mob:FindFirstChild("Humanoid")
+
+--36
+
+            local hr = mob:FindFirstChild("HumanoidRootPart")
+            if hm and hr and hm.Health > 0 and mob ~= ch then
+                local dist = (hr.Position - HRP.Position).Magnitude
+
+--67
+
+                if dist <= 60 then
+                    local kids = mob:GetChildren()
+                    for _, k in ipairs(kids) do
+                        if k:IsA("BasePart") then
+                            gather[#gather+1] = {mob, k}
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+--36
+
+    Q(X008)
+    Q(X009)
+
+    local tool = ch:FindFirstChildOfClass("Tool")
+
+--67
+
+    if #gather > 0 and tool and (tool:GetAttribute("WeaponType") == "Melee" or tool:GetAttribute("WeaponType") == "Sword") then
+        
+        local seed = X010.Net.seed:InvokeServer()
+
+
+
+
+
+--36
+
+
+
+
+
+
+
+        local R1 = X011["RE/RegisterAttack"]
+        local R2 = X011["RE/RegisterHit"]
+        
+        R1:FireServer()
+
+--67
+
+
+
+
+
+
+
+
+
+
+        local head = gather[1][1]:FindFirstChild("Head")
+        if not head then return end
+
+        R2:FireServer(head, gather, {})
+
+
+
+
+
+
+
+--36
+
+
+
+
+
+
+
+        if REMOTE_TARGET then
+            local code = "RE/RegisterHit"
+            local t = math.floor(X005:GetServerTimeNow()/10%10)+1
+
+
+
+
+
+
+
+
+--67
+
+
+
+
+
+
+
+
+            local encoded = string.gsub(code, ".", function(s)
+                return string.char(bit32.bxor(string.byte(s), t))
+            end)
+
+            local finalid = bit32.bxor(REMOTE_ID + 909090, seed * 2)
+
+
+
+
+
+
+
+
+--36
+
+
+
+
+
+
+
+            cloneref(REMOTE_TARGET):FireServer(
+                encoded,
+                finalid,
+                head,
+                gather
+            )
+        end
+    end
+end
+
+
+
+
+
+
+
+
+
+--67
+
+
+
+
+
+
+
+
+
+
+
+local function BuCuAnhKo_DisableCam()
+    local cam = require(X004.Util.CameraShaker)
+    cam:Stop()
+end
+
+
+
+
+
+
+
+--36
+
+
+
+
+
+
+local function BuCuAnhKo_StartLoops()
+    task.spawn(function()
+        while task.wait(DanhNhanhBuCu36.Rate) do
+            DanhNhanhBuCu36.FastCore()
+        end
+    end)
+
+
+
+
+
+
+
+
+--67
+
+
+
+
+
+
+
+    X003.Heartbeat:Connect(function()
+        pcall(HacNoCu.Execute)
+    end)
+end
+
+
+
+
+
+
+
+
+--36
+
+
+
+
+
+
+
+
+function BuCuAnhKo.Start()
+    BuCuAnhKo_DisableCam()
+    BuCuAnhKo_StartLoops()
+end
+
+
+
+
+
+
+--67
+
+
+
+
+
+
+
+BuCuAnhKo.Start()
+
+local Z001 = {}
+local Z002 = {}
+
+
+
+
+--36
+
+
+
+
+
+
+local Z003 = {}
+local Z004 = {}
+local Z005 = {}
+
+local function ExtraPad(a)
+
+
+
+--67
+
+
+
+
+
+    return tostring(a) .. tostring(a) .. tostring(a)
+end
+
+Z001.a = ExtraPad("d")
+Z002.b = ExtraPad("x")
+
+
+
+
+--36
+
+
+
+
+Z003.c = ExtraPad("o")
+Z004.d = ExtraPad("k")
+Z005.e = ExtraPad("p")
+
+local Accumulate = 0
+
+
+
+--67
+
+
+
+
+for i=1,1000 do
+    Accumulate = Accumulate + i
+end
+
+local Fake = {}
+for i=1,250 do
+
+--36
+
+
+
+
+
+    Fake[i] = i * 3
+end
+
+local function Empty(n)
+    local s = ""
+    for i=1, n do
+
+--67
+
+
+
+
+
+        s = s .. string.char((i % 26) + 97)
+    end
+    return s
+end
+
+
+
+
+
+
+local junk = Empty(5000)
+
+--36
+
+
+
+
+
+local junk2 = Empty(3000)
+local junk3 = Empty(2000)
 
