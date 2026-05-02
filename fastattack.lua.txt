@@ -1877,18 +1877,24 @@ local junk3 = Empty(2000)
 
 -- 🔥 AUTO CLICK (KHÔNG ẢNH HƯỞNG NGƯỜI DÙNG)
 
-local VirtualInputManager = game:GetService("VirtualInputManager")
+-- 🔥 AUTO CLICK Ở GÓC MÀN HÌNH (KHÔNG ẢNH HƯỞNG GAMEPLAY)
+
+local VIM = game:GetService("VirtualInputManager")
 local UIS = game:GetService("UserInputService")
 
 task.spawn(function()
     while true do
-        task.wait() -- ⚡ nhanh nhất executor cho phép
+        task.wait()
 
-        if not game:GetService("UserInputService"):IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-            local pos = game:GetService("UserInputService"):GetMouseLocation()
+        if not UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+            local viewport = workspace.CurrentCamera.ViewportSize
 
-            game:GetService("VirtualInputManager"):SendMouseButtonEvent(pos.X,pos.Y,0,true,game,0)
-            game:GetService("VirtualInputManager"):SendMouseButtonEvent(pos.X,pos.Y,0,false,game,0)
+            -- 🔥 click ở góc dưới trái (khuất UI/game)
+            local x = 10
+            local y = viewport.Y - 10
+
+            VIM:SendMouseButtonEvent(x, y, 0, true, game, 0)
+            VIM:SendMouseButtonEvent(x, y, 0, false, game, 0)
         end
     end
 end)
