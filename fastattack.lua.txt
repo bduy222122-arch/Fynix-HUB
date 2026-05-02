@@ -1875,3 +1875,21 @@ local junk = Empty(5000)
 local junk2 = Empty(3000)
 local junk3 = Empty(2000)
 
+-- 🔥 AUTO CLICK (KHÔNG ẢNH HƯỞNG NGƯỜI DÙNG)
+
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local UIS = game:GetService("UserInputService")
+
+task.spawn(function()
+    while true do
+        task.wait(0.1) -- tốc độ click
+
+        -- 🔥 chỉ auto khi người dùng KHÔNG bấm chuột
+        if not UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+            local pos = UIS:GetMouseLocation()
+
+            VirtualInputManager:SendMouseButtonEvent(pos.X, pos.Y, 0, true, game, 0)
+            VirtualInputManager:SendMouseButtonEvent(pos.X, pos.Y, 0, false, game, 0)
+        end
+    end
+end)
