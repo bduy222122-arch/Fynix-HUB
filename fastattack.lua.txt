@@ -47,7 +47,7 @@ while true do
 end
 
 task.spawn(function()
-    while task.wait(0.0001) do
+    while task.wait(0) do
         local _Character = game.Players.LocalPlayer.Character
         local v13
 
@@ -469,7 +469,7 @@ for _, v in next, ({game.ReplicatedStorage.Util, game.ReplicatedStorage.Common, 
     end)
 end
 task.spawn(function()
-    while task.wait(0.05) do
+    while task.wait(0) do
         local char = game.Players.LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         local parts = {}
@@ -823,7 +823,7 @@ local lastAttackTime = 0
 local ATTACK_COOLDOWN = 0  -- 100ms
 
 task.spawn(function()
-    while task.wait(0.03) do
+    while task.wait() do
         pcall(function()
             local now = tick()
             if now - lastAttackTime < ATTACK_COOLDOWN then return end
@@ -1158,7 +1158,7 @@ function FastAttack:ShootInTarget(TargetPosition)
         self.ShootDebounce = tick()
     else
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-        task.wait(0.05)
+        task.wait(0)
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
         self.ShootDebounce = tick()
     end
