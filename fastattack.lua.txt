@@ -1,6 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
+local RunSer = game:GetService("RunService")
 local plr = Players.LocalPlayer
 local enemiesFolder = workspace:WaitForChild("Enemies")
 
@@ -607,6 +607,10 @@ local function Attack()
 end
 
 -- 🔥 LOOP (ỔN ĐỊNH)
+-- 🔥 FIX HEARTBEAT + STABLE LOOP
+
+local lastTick = 0
+
 RunSer.Heartbeat:Connect(function()
     if not _G.Seriality then return end
 
@@ -620,13 +624,23 @@ RunSer.Heartbeat:Connect(function()
     local tool = getTool()
     if not tool then return end
 
-    -- 🔥 expand 1 lần thôi (tránh spam)
+    -- 🔥 FIX: tool bị đổi / chết → reset tag
     if not tool:FindFirstChild("__hitbox") then
         local tag = Instance.new("BoolValue")
         tag.Name = "__hitbox"
         tag.Parent = tool
-        ExpandWeaponHitbox(tool)
+
+        pcall(function()
+            ExpandWeaponHitbox(tool)
+        end)
     end
 
-    pcall(Attack)
+    -- 🔥 FIX: tránh crash heartbeat
+    local ok = pcall(function()
+        Attack()
+    end)
+
+    if not ok then
+        warn("Attack error")
+    end
 end)
