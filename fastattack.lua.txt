@@ -878,7 +878,7 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while task.wait(0.08) do
+    while task.wait(0) do
         pcall(function()
             local root   = hrp()
             local remote = getRemote()
@@ -911,7 +911,7 @@ end)
 
 -- Periodic target validation to prevent locking on distant targets
 task.spawn(function()
-    while task.wait(0.5) do
+    while task.wait(0) do
         pcall(function()
             local root = hrp()
             if root and currentTargetModel and sharedPrimary and not canKeepCurrentTarget(root, sharedPrimary) then
@@ -948,7 +948,7 @@ task.spawn(function()
             ctrl.hitboxMagnitude = 60
             ctrl.timeToNextBlock = 0
             ctrl.focusStart      = 1655503339.0980349
-            ctrl.increment       = 1
+            ctrl.increment       = 5
             ctrl.blocking        = false
             if ctrl.humanoid then
                 ctrl.humanoid.AutoRotate = true
