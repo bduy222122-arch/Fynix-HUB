@@ -250,16 +250,108 @@ layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 
--- 🔥 DATA
-local start = tick()
-getgenv().TotalGain = getgenv().TotalGain or 0
-getgenv().TotalUptime = getgenv().TotalUptime or 0
+-- 🔥 FILE SETUP
+local folder = "Fynix Hub Auto Bounty"
+local fileUptime = folder.."/TotalUptime.txt"
+local fileGain = folder.."/TotalGain.txt"
 
--- 🔥 LOOP
+if not isfolder(folder) then
+    makefolder(folder)
+end
+
+-- 🔥 LOAD DATA
+local savedUptime = isfile(fileUptime) and tonumber(readfile(fileUptime)) or 0
+local savedGain = isfile(fileGain) and tonumber(readfile(fileGain)) or 0
+
+getgenv().TotalUptime = savedUptime
+getgenv().TotalGain = savedGain
+
+local start = tick()
+local lastGainTick = 0
+
+-- 🔥 SAVE FUNCTION
+local function saveAll()
+    local session = math.floor(tick() - start)
+    writefile(fileUptime, tostring(savedUptime + session))
+    writefile(fileGain, tostring(getgenv().TotalGain))
+end
+
+-- 🔥 AUTO SAVE (ANTI CRASH)
+task.spawn(function()
+    while true do
+        task.wait(5)
+        saveAll()
+    end
+end)
+-- 🔥 FORMAT NUMBER (DẤU PHẨY 1,234,567)
+local function format(num)
+    num = tonumber(num) or 0
+    local str = tostring(math.floor(num))
+
+    -- thêm dấu ,
+    while true do
+        str, k = str:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
+        if k == 0 then break end
+    end
+
+    return str
+end
+
+-- 🔥 FORMAT TIME (GIỮ NGUYÊN)
+local function formatTime(sec)
+    sec = math.floor(sec)
+
+    local h = math.floor(sec / 3600)
+    local m = math.floor((sec % 3600) / 60)
+    local s = sec % 60
+
+    if h > 0 then
+        return string.format("%dh %02dm", h, m)
+    elseif m > 0 then
+        return string.format("%dm %02ds", m, s)
+    else
+        return sec.."s"
+    end
+end
+-- 🔥 FILE
+
+
+-- 🔥 LOAD TOTAL GAIN
+local savedGain = isfile(fileGain) and tonumber(readfile(fileGain)) or 0
+getgenv().TotalGain = savedGain
+getgenv().LastGain = 0
+
+-- 🔥 GAIN TRACKER (ADD TRƯỚC LOOP)
+local oldBounty = nil
+
+task.spawn(function()
+    local stats = lp:WaitForChild("leaderstats",10)
+    local val = stats and (stats:FindFirstChild("Bounty") or stats:FindFirstChild("Bounty/Honor"))
+    if not val then return end
+
+    oldBounty = val.Value -- ❌ bỏ lần đầu
+
+    val.Changed:Connect(function(newVal)
+        if oldBounty then
+            local diff = newVal - oldBounty
+            if diff > 0 then
+                getgenv().LastGain = diff
+                getgenv().TotalGain += diff
+
+                -- 🔥 SAVE FILE
+                writefile(fileGain, tostring(getgenv().TotalGain))
+            end
+        end
+        oldBounty = newVal
+    end)
+end)
+
+-- 🔥 MAIN LOOP (KHÔNG CỘNG GAIN Ở ĐÂY NỮA)
 task.spawn(function()
     while true do
         task.wait(0.5)
 
+        -- 🔥 TARGET
         local t = getgenv().Targets
         if t and #t > 0 then
             target.Text = "Target: "..t[1].Name
@@ -267,25 +359,29 @@ task.spawn(function()
             target.Text = "Target: Searching..."
         end
 
-        local up = math.floor(tick()-start)
-        uptime.Text = "Uptime: "..up.."s"
+        -- 🔥 UPTIME
+        local session = math.floor(tick() - start)
+        local total = savedUptime + session
 
-        getgenv().TotalUptime += 1
-        totalUp.Text = "Total Uptime: "..format(getgenv().TotalUptime).."s"
+        uptime.Text = "Uptime: "..formatTime(session)
+        totalUp.Text = "Total Uptime: "..formatTime(total)
 
+        getgenv().TotalUptime = total
+
+        -- 🔥 BOUNTY
         local b = 0
         pcall(function()
-            local stats = lp.leaderstats
+            local stats = lp:FindFirstChild("leaderstats")
             local val = stats and (stats:FindFirstChild("Bounty") or stats:FindFirstChild("Bounty/Honor"))
             if val then b = val.Value end
         end)
 
         bounty.Text = "Bounty: "..format(b)
-        gain.Text = "Gain: +"..format(getgenv().LastGain or 0)
 
-        getgenv().TotalGain += (getgenv().LastGain or 0)
+        -- 🔥 GAIN (CHỈ HIỂN THỊ)
+        local currentGain = getgenv().LastGain or 0
+        gain.Text = "Gain: +"..format(currentGain)
+
         totalGain.Text = "Total Gain: +"..format(getgenv().TotalGain)
     end
 end)
-
-
