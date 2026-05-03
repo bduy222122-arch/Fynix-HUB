@@ -1,34 +1,28 @@
+-- 🔥 FYNIX AUTO BOUNTY M1 (FULL REMAKE CLEAN + PREMIUM)
+
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local lp = Players.LocalPlayer
 
--- 🔥 RESPONSIVE SIZE
-local isMobile = UIS.TouchEnabled
-local size = isMobile and UDim2.new(0.9,0,0.8,0) or UDim2.new(0,420,0,420)
+-- 🔥 GUI RESET
+pcall(function()
+    game.CoreGui:FindFirstChild("FynixM1"):Destroy()
+end)
 
--- 🔥 GUI
+-- 🔥 MAIN GUI
 local gui = Instance.new("ScreenGui", game.CoreGui)
 gui.Name = "FynixM1"
 
+local isMobile = UIS.TouchEnabled
 local main = Instance.new("Frame", gui)
-main.Size = size
+main.Size = isMobile and UDim2.new(0.9,0,0.8,0) or UDim2.new(0,420,0,420)
 main.Position = UDim2.new(0.5,0,0.5,0)
 main.AnchorPoint = Vector2.new(0.5,0.5)
 main.BackgroundColor3 = Color3.fromRGB(25,15,40)
+main.BorderSizePixel = 0
 Instance.new("UICorner", main).CornerRadius = UDim.new(0,14)
 
--- 🔥 STROKE (GOLD/PURPLE)
-local stroke = Instance.new("UIStroke", main)
-stroke.Thickness = 2
-local grad = Instance.new("UIGradient", stroke)
-grad.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,200,0)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(170,0,255))
-}
-
--- 🔥 TITLE
--- 🔥 ULTRA TITLE (GRADIENT + STROKE + GLOW)
-
+-- 🔥 TITLE (GIỮ NGUYÊN)
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.new(1,0,0,55)
 title.BackgroundTransparency = 1
@@ -37,22 +31,18 @@ title.Font = Enum.Font.GothamBlack
 title.TextSize = 26
 title.TextColor3 = Color3.fromRGB(255,255,255)
 
--- 🔥 GRADIENT TEXT (fake bằng overlay)
 local grad = Instance.new("UIGradient", title)
 grad.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),   -- vàng
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170,0,255)), -- tím
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170,0,255)),
     ColorSequenceKeypoint.new(1, Color3.fromRGB(255,215,0))
 }
-grad.Rotation = 0
 
--- 🔥 TEXT STROKE (viền chữ)
 local stroke = Instance.new("UIStroke", title)
 stroke.Thickness = 1.5
 stroke.Color = Color3.fromRGB(255,200,0)
 stroke.Transparency = 0.3
 
--- 🔥 GLOW (2 lớp cho mượt)
 local glow1 = Instance.new("UIStroke", title)
 glow1.Thickness = 4
 glow1.Transparency = 0.85
@@ -60,19 +50,10 @@ glow1.Transparency = 0.85
 local glowGrad = Instance.new("UIGradient", glow1)
 glowGrad.Color = grad.Color
 
-local glow2 = Instance.new("UIStroke", title)
-glow2.Thickness = 7
-glow2.Transparency = 0.93
-
-local glowGrad2 = Instance.new("UIGradient", glow2)
-glowGrad2.Color = grad.Color
-
--- 🔥 ANIMATION (mượt + sang)
 task.spawn(function()
     while title.Parent do
         grad.Rotation = (grad.Rotation + 0.6) % 360
         glowGrad.Rotation = grad.Rotation
-        glowGrad2.Rotation = grad.Rotation
         task.wait(0.02)
     end
 end)
@@ -80,62 +61,50 @@ end)
 -- 🔥 TAB BAR
 local tabBar = Instance.new("Frame", main)
 tabBar.Size = UDim2.new(1,-20,0,40)
-tabBar.Position = UDim2.new(0,10,0,50)
+tabBar.Position = UDim2.new(0,10,0,55)
 tabBar.BackgroundTransparency = 1
 
-local function createTab(name, order)
+local function createTab(name, order, color)
     local b = Instance.new("TextButton", tabBar)
     b.Size = UDim2.new(1/3,-6,1,0)
-    b.Position = UDim2.new((order-1)/3, (order-1)*6, 0, 0)
-    b.BackgroundColor3 = Color3.fromRGB(32,22,50)
+    b.Position = UDim2.new((order-1)/3,(order-1)*6,0,0)
+    b.BackgroundColor3 = Color3.fromRGB(30,20,50)
     b.Text = name
-    b.Font = Enum.Font.GothamSemibold
+    b.Font = Enum.Font.GothamBold
     b.TextSize = 15
+    b.TextColor3 = color
+    Instance.new("UICorner", b)
 
-    -- 🔥 COLOR THEO TAB
-    local colorMap = {
-        HOME = Color3.fromRGB(0,255,180),
-        PLAYER = Color3.fromRGB(255,180,0),
-        SETTING = Color3.fromRGB(170,0,255)
-    }
-
-    local mainColor = colorMap[name] or Color3.fromRGB(255,255,255)
-    b.TextColor3 = mainColor
-
-    -- 🔥 BO GÓC
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0,10)
-
-    -- 🔥 VIỀN BUTTON (gradient tím + vàng nhẹ)
-    local stroke = Instance.new("UIStroke", b)
-    stroke.Thickness = 1.2
-
-    local gradStroke = Instance.new("UIGradient", stroke)
-    gradStroke.Color = ColorSequence.new{
+    local s = Instance.new("UIStroke", b)
+    s.Thickness = 1.2
+    Instance.new("UIGradient", s).Color = ColorSequence.new{
         ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
         ColorSequenceKeypoint.new(1, Color3.fromRGB(170,0,255))
     }
 
-    -- 🔥 VIỀN CHỮ (text stroke)
-    local txtStroke = Instance.new("UIStroke", b)
-    txtStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-    txtStroke.Thickness = 0.8
-    txtStroke.Transparency = 0.4
-    txtStroke.Color = mainColor
-
     return b
 end
 
-local homeTab = createTab("HOME",1)
-local playerTab = createTab("PLAYER",2)
-local settingTab = createTab("SETTING",3)
+local homeTab = createTab("HOME",1,Color3.fromRGB(0,255,180))
+local playerTab = createTab("PLAYER",2,Color3.fromRGB(255,200,0))
+local settingTab = createTab("SETTING",3,Color3.fromRGB(170,0,255))
 
 -- 🔥 SECTIONS
 local function newSection()
     local f = Instance.new("Frame", main)
     f.Size = UDim2.new(1,-20,1,-100)
     f.Position = UDim2.new(0,10,0,95)
-    f.BackgroundTransparency = 1
+    f.BackgroundColor3 = Color3.fromRGB(28,18,45)
     f.Visible = false
+    Instance.new("UICorner", f)
+
+    local s = Instance.new("UIStroke", f)
+    s.Thickness = 1.3
+    Instance.new("UIGradient", s).Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(170,0,255))
+    }
+
     return f
 end
 
@@ -145,98 +114,10 @@ local sections = {
     Setting = newSection()
 }
 
--- 🔥 SCROLL HOME
-local scroll = Instance.new("ScrollingFrame", sections.Home)
-scroll.Size = UDim2.new(1,0,1,0)
-scroll.CanvasSize = UDim2.new(0,0,0,0)
-scroll.ScrollBarThickness = 4
-scroll.BackgroundTransparency = 1
-
-local layout = Instance.new("UIListLayout", scroll)
-layout.Padding = UDim.new(0,6)
-
--- 🔥 TABS API (ADD + UPDATE PARAGRAPH)
-
--- 🔥 FIX: Tabs hỗ trợ nhiều section
-
-local Tabs = {}
-
-local scrolls = {
-    Home = homeScroll,
-    Player = Instance.new("ScrollingFrame", sections.Player),
-    Setting = Instance.new("ScrollingFrame", sections.Setting)
-}
-
--- setup scroll Player / Setting
-for _, scr in pairs(scrolls) do
-    if not scr.Parent then
-        scr.Size = UDim2.new(1,0,1,0)
-        scr.CanvasSize = UDim2.new(0,0,0,0)
-        scr.ScrollBarThickness = 4
-        scr.BackgroundTransparency = 1
-        scr.Parent = sections.Player -- default, sẽ set lại dưới
-    end
-end
-
-scrolls.Player.Parent = sections.Player
-scrolls.Setting.Parent = sections.Setting
-
-local layouts = {}
-
-for name, scr in pairs(scrolls) do
-    local layout = Instance.new("UIListLayout", scr)
-    layout.Padding = UDim.new(0,6)
-    layouts[name] = layout
-end
-
--- 🔥 FUNCTION CHUNG
-function Tabs.AddParagraph(text, tab)
-    tab = tab or "Home"
-    local parentScroll = scrolls[tab]
-    local layout = layouts[tab]
-
-    local frame = Instance.new("Frame", parentScroll)
-    frame.Size = UDim2.new(1,-4,0,58)
-    frame.BackgroundColor3 = Color3.fromRGB(26,16,45)
-    frame.ClipsDescendants = true
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0,12)
-
-    local stroke = Instance.new("UIStroke", frame)
-    stroke.Thickness = 1.5
-
-    local grad = Instance.new("UIGradient", stroke)
-    grad.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(170,0,255))
-    }
-
-    local lbl = Instance.new("TextLabel", frame)
-    lbl.Size = UDim2.new(1,-16,1,-10)
-    lbl.Position = UDim2.new(0,8,0,5)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.Font = Enum.Font.GothamMedium
-    lbl.TextSize = 14
-    lbl.TextColor3 = Color3.fromRGB(255,235,170)
-    lbl.TextWrapped = true
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-
-    parentScroll.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 4)
-
-    return {
-        Set = function(newText)
-            lbl.Text = newText
-        end
-    }
-end
-
-
 -- 🔥 SWITCH
-local current
 local function switch(name)
     for _,v in pairs(sections) do v.Visible = false end
     sections[name].Visible = true
-    current = name
 end
 
 homeTab.MouseButton1Click:Connect(function() switch("Home") end)
@@ -245,46 +126,93 @@ settingTab.MouseButton1Click:Connect(function() switch("Setting") end)
 
 switch("Home")
 
+-- 🔥 FORMAT
+local function format(n)
+    if n >= 1e6 then return string.format("%.2fM", n/1e6)
+    elseif n >= 1e3 then return string.format("%.1fK", n/1e3)
+    else return tostring(n) end
+end
+
+-- 🔥 LINE
+local function line(y)
+    local f = Instance.new("TextLabel", sections.Home)
+    f.Size = UDim2.new(1,-20,0,35)
+    f.Position = UDim2.new(0,10,0,y)
+    f.BackgroundTransparency = 1
+    f.Font = Enum.Font.GothamSemibold
+    f.TextSize = 14
+    f.TextColor3 = Color3.fromRGB(255,235,170)
+    f.TextXAlignment = Enum.TextXAlignment.Left
+    return f
+end
+
+local target = line(0)
+local uptime = line(35)
+local totalUp = line(70)
+local bounty = line(105)
+local gain = line(140)
+local totalGain = line(175)
+
+-- 🔥 DATA
+local start = tick()
+getgenv().TotalGain = getgenv().TotalGain or 0
+getgenv().TotalUptime = getgenv().TotalUptime or 0
+
+-- 🔥 LOOP
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+
+        local t = getgenv().Targets
+        if t and #t > 0 then
+            target.Text = "Target: "..t[1].Name
+        else
+            target.Text = "Target: Searching..."
+        end
+
+        local up = math.floor(tick()-start)
+        uptime.Text = "Uptime: "..up.."s"
+
+        getgenv().TotalUptime += 1
+        totalUp.Text = "Total Uptime: "..format(getgenv().TotalUptime).."s"
+
+        local b = 0
+        pcall(function()
+            local stats = lp.leaderstats
+            local val = stats and (stats:FindFirstChild("Bounty") or stats:FindFirstChild("Bounty/Honor"))
+            if val then b = val.Value end
+        end)
+
+        bounty.Text = "Bounty: "..format(b)
+        gain.Text = "Gain: +"..format(getgenv().LastGain or 0)
+
+        getgenv().TotalGain += (getgenv().LastGain or 0)
+        totalGain.Text = "Total Gain: +"..format(getgenv().TotalGain)
+    end
+end)
+
 -- 🔥 DRAG
--- 🔥 DRAG ONLY WHEN HOLD + RELEASE STOP
-
-local dragging = false
-local dragStart, startPos
-
+local dragging, dragStart, startPos
 main.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
         dragStart = i.Position
         startPos = main.Position
     end
 end)
 
-main.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        dragging = false -- 🔥 chỉ kéo khi giữ
-    end
+main.InputEnded:Connect(function()
+    dragging = false
 end)
 
 UIS.InputChanged:Connect(function(i)
-    if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-        local delta = i.Position - dragStart
+    if dragging then
+        local d = i.Position - dragStart
         main.Position = UDim2.new(
             startPos.X.Scale,
-            startPos.X.Offset + delta.X,
+            startPos.X.Offset + d.X,
             startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
+            startPos.Y.Offset + d.Y
         )
     end
 end)
-
--- 🔥 EXPORT
-getgenv().Tabs = Tabs
-
--- 🔥 EXPORT
-
-
--- 🔥 USE
-local p1 = Tabs.AddParagraph("Hello Home")
-local p2 = Tabs.AddParagraph("Hello Player Tab", "Player")
-local p3 = Tabs.AddParagraph("Hello Setting Tab", "Setting")
-
