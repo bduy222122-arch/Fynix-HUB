@@ -15,55 +15,89 @@ gui.Name = "FynixM1"
 
 -- 🔥 GLASS UI (MỜ + GRADIENT VIỀN ĐẸP)
 
+-- 🔥 MAIN UI (FIX FULL)
+
 local isMobile = UIS.TouchEnabled
 
 local main = Instance.new("Frame", gui)
 main.Size = isMobile and UDim2.new(0.9,0,0.8,0) or UDim2.new(0,420,0,420)
 main.Position = UDim2.new(0.5,0,0.5,0)
 main.AnchorPoint = Vector2.new(0.5,0.5)
-main.BackgroundColor3 = Color3.fromRGB(20,12,35)
-main.BackgroundTransparency = 0.15 -- 🔥 MỜ
+main.BackgroundColor3 = Color3.fromRGB(25,15,40)
+main.BackgroundTransparency = 0.1
 main.BorderSizePixel = 0
 main.ClipsDescendants = true
-
 Instance.new("UICorner", main).CornerRadius = UDim.new(0,16)
 
--- 🔥 BACKGROUND GRADIENT (glass feel)
+-- 🔥 BACKGROUND GRADIENT (VISIBLE)
 local bg = Instance.new("UIGradient", main)
 bg.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(40,20,70)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(15,10,30))
-}
-bg.Transparency = NumberSequence.new{
-    NumberSequenceKeypoint.new(0,0.2),
-    NumberSequenceKeypoint.new(1,0.4)
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60,25,90)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20,10,35))
 }
 
--- 🔥 VIỀN GRADIENT
-local stroke = Instance.new("UIStroke", main)
-stroke.Thickness = 2
+-- 🔥 FAKE GRADIENT BORDER (WORK 100%)
+local border = Instance.new("Frame", main)
+border.Size = UDim2.new(1,4,1,4)
+border.Position = UDim2.new(0,-2,0,-2)
+border.BackgroundTransparency = 1
+border.ZIndex = -1
+Instance.new("UICorner", border).CornerRadius = UDim.new(0,18)
 
-local grad = Instance.new("UIGradient", stroke)
-grad.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),   -- vàng
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170,0,255)), -- tím
+local borderStroke = Instance.new("UIStroke", border)
+borderStroke.Thickness = 2
+
+local borderGrad = Instance.new("UIGradient", borderStroke)
+borderGrad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170,0,255)),
     ColorSequenceKeypoint.new(1, Color3.fromRGB(255,215,0))
 }
 
--- 🔥 GLOW VIỀN (mượt)
+-- 🔥 GLOW (VISIBLE)
 local glow = Instance.new("UIStroke", main)
-glow.Thickness = 6
-glow.Transparency = 0.88
+glow.Thickness = 8
+glow.Transparency = 0.7
 
 local glowGrad = Instance.new("UIGradient", glow)
-glowGrad.Color = grad.Color
+glowGrad.Color = borderGrad.Color
 
--- 🔥 ANIMATION (gradient chạy nhẹ)
+-- 🔥 ANIMATE
 task.spawn(function()
     while main.Parent do
-        grad.Rotation = (grad.Rotation + 0.5) % 360
-        glowGrad.Rotation = grad.Rotation
+        borderGrad.Rotation = (borderGrad.Rotation + 1) % 360
+        glowGrad.Rotation = borderGrad.Rotation
         task.wait(0.02)
+    end
+end)
+
+-- 🔥 DRAG (FIX CHUẨN)
+local dragging, dragStart, startPos
+
+main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = main.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if dragging then
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
     end
 end)
 -- 🔥 TITLE (GIỮ NGUYÊN)
@@ -178,32 +212,43 @@ local function format(n)
 end
 
 -- 🔥 LINE
-local function line(y)
-    local f = Instance.new("TextLabel", sections.Home)
-    
-    -- 🔥 FIX TRÀN: trừ padding + anchor
-    f.Size = UDim2.new(1, -30, 0, 35)
-    f.Position = UDim2.new(0, 15, 0, y)
+-- 🔥 SCROLL (CHO HOME)
+local homeScroll = Instance.new("ScrollingFrame", sections.Home)
+homeScroll.Size = UDim2.new(1, -10, 1, -10)
+homeScroll.Position = UDim2.new(0, 5, 0, 5)
+homeScroll.CanvasSize = UDim2.new(0,0,0,0)
+homeScroll.ScrollBarThickness = 4
+homeScroll.BackgroundTransparency = 1
 
+local layout = Instance.new("UIListLayout", homeScroll)
+layout.Padding = UDim.new(0,6)
+
+-- 🔥 LINE FIX (AUTO NẰM TRONG SCROLL)
+local function line()
+    local f = Instance.new("TextLabel", homeScroll)
+    f.Size = UDim2.new(1,-10,0,32)
     f.BackgroundTransparency = 1
     f.Font = Enum.Font.GothamSemibold
     f.TextSize = 14
     f.TextColor3 = Color3.fromRGB(255,235,170)
     f.TextXAlignment = Enum.TextXAlignment.Left
     f.TextWrapped = true
-
-    -- 🔥 FIX: không vượt ra ngoài
-    f.ClipsDescendants = true
-
     return f
 end
 
-local target = line(0)
-local uptime = line(35)
-local totalUp = line(70)
-local bounty = line(105)
-local gain = line(140)
-local totalGain = line(175)
+-- 🔥 CREATE LINE (KHÔNG CẦN Y NỮA)
+local target = line()
+local uptime = line()
+local totalUp = line()
+local bounty = line()
+local gain = line()
+local totalGain = line()
+
+-- 🔥 AUTO CANVAS SIZE
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    homeScroll.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
+end)
+
 
 -- 🔥 DATA
 local start = tick()
@@ -243,28 +288,4 @@ task.spawn(function()
     end
 end)
 
--- 🔥 DRAG
-local dragging, dragStart, startPos
-main.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = i.Position
-        startPos = main.Position
-    end
-end)
 
-main.InputEnded:Connect(function()
-    dragging = false
-end)
-
-UIS.InputChanged:Connect(function(i)
-    if dragging then
-        local d = i.Position - dragStart
-        main.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + d.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + d.Y
-        )
-    end
-end)
