@@ -13,15 +13,59 @@ end)
 local gui = Instance.new("ScreenGui", game.CoreGui)
 gui.Name = "FynixM1"
 
+-- 🔥 GLASS UI (MỜ + GRADIENT VIỀN ĐẸP)
+
 local isMobile = UIS.TouchEnabled
+
 local main = Instance.new("Frame", gui)
 main.Size = isMobile and UDim2.new(0.9,0,0.8,0) or UDim2.new(0,420,0,420)
 main.Position = UDim2.new(0.5,0,0.5,0)
 main.AnchorPoint = Vector2.new(0.5,0.5)
-main.BackgroundColor3 = Color3.fromRGB(25,15,40)
+main.BackgroundColor3 = Color3.fromRGB(20,12,35)
+main.BackgroundTransparency = 0.15 -- 🔥 MỜ
 main.BorderSizePixel = 0
-Instance.new("UICorner", main).CornerRadius = UDim.new(0,14)
+main.ClipsDescendants = true
 
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,16)
+
+-- 🔥 BACKGROUND GRADIENT (glass feel)
+local bg = Instance.new("UIGradient", main)
+bg.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(40,20,70)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(15,10,30))
+}
+bg.Transparency = NumberSequence.new{
+    NumberSequenceKeypoint.new(0,0.2),
+    NumberSequenceKeypoint.new(1,0.4)
+}
+
+-- 🔥 VIỀN GRADIENT
+local stroke = Instance.new("UIStroke", main)
+stroke.Thickness = 2
+
+local grad = Instance.new("UIGradient", stroke)
+grad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),   -- vàng
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170,0,255)), -- tím
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255,215,0))
+}
+
+-- 🔥 GLOW VIỀN (mượt)
+local glow = Instance.new("UIStroke", main)
+glow.Thickness = 6
+glow.Transparency = 0.88
+
+local glowGrad = Instance.new("UIGradient", glow)
+glowGrad.Color = grad.Color
+
+-- 🔥 ANIMATION (gradient chạy nhẹ)
+task.spawn(function()
+    while main.Parent do
+        grad.Rotation = (grad.Rotation + 0.5) % 360
+        glowGrad.Rotation = grad.Rotation
+        task.wait(0.02)
+    end
+end)
 -- 🔥 TITLE (GIỮ NGUYÊN)
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.new(1,0,0,55)
@@ -136,13 +180,21 @@ end
 -- 🔥 LINE
 local function line(y)
     local f = Instance.new("TextLabel", sections.Home)
-    f.Size = UDim2.new(1,-20,0,35)
-    f.Position = UDim2.new(0,10,0,y)
+    
+    -- 🔥 FIX TRÀN: trừ padding + anchor
+    f.Size = UDim2.new(1, -30, 0, 35)
+    f.Position = UDim2.new(0, 15, 0, y)
+
     f.BackgroundTransparency = 1
     f.Font = Enum.Font.GothamSemibold
     f.TextSize = 14
     f.TextColor3 = Color3.fromRGB(255,235,170)
     f.TextXAlignment = Enum.TextXAlignment.Left
+    f.TextWrapped = true
+
+    -- 🔥 FIX: không vượt ra ngoài
+    f.ClipsDescendants = true
+
     return f
 end
 
