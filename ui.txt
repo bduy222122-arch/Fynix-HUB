@@ -446,20 +446,25 @@ local function createRow(p)
     txt.Text = p.Name.." | Loading..."
 
     task.spawn(function()
+        local char = p.Character or p.CharacterAdded:Wait()
+
         while row.Parent do
             task.wait(0.3)
-    
-            local char = p.Character
-            local hum = char and char:FindFirstChild("Humanoid")
-    
+
+            if not char or not char.Parent then
+                char = p.Character or p.CharacterAdded:Wait()
+            end
+
+            local hum = char:FindFirstChildOfClass("Humanoid")
+
             if hum then
                 txt.Text = p.Name.." | "..math.floor(hum.Health)
             else
-                txt.Text = p.Name.." | N/A"
+                txt.Text = p.Name.." | Loading..."
             end
         end
     end)
-    
+
     return row
 end
 
