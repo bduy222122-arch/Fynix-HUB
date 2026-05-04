@@ -446,9 +446,9 @@ local function createRow(p)
     txt.Text = p.Name.." | Loading..."
 
     local function GetHPPercent(character)
-        if not character then return 0 end
+        if not character then return nil end
         local hum = character:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.MaxHealth <= 0 then return 0 end
+        if not hum or hum.MaxHealth <= 0 then return nil end
         return math.floor((hum.Health / hum.MaxHealth) * 100)
     end
     
@@ -464,7 +464,7 @@ local function createRow(p)
     
             local percent = GetHPPercent(char)
     
-            if percent > 0 then
+            if percent ~= nil then
                 txt.Text = p.Name.." | "..percent.."%"
             else
                 txt.Text = p.Name.." | Loading..."
