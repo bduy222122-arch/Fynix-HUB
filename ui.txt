@@ -448,18 +448,18 @@ local function createRow(p)
     task.spawn(function()
         while row.Parent do
             task.wait(0.3)
-
+    
             local char = p.Character
             local hum = char and char:FindFirstChild("Humanoid")
-
+    
             if hum then
-                txt.Text = p.Name.." | "..math.floor(p.Character.Humanoid.Health)
+                txt.Text = p.Name.." | "..math.floor(hum.Health)
             else
                 txt.Text = p.Name.." | N/A"
             end
         end
     end)
-
+    
     return row
 end
 
