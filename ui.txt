@@ -143,24 +143,55 @@ tabBar.Position = UDim2.new(0,10,0,55)
 tabBar.BackgroundTransparency = 1
 
 local function createTab(name, order, color)
-    local b = Instance.new("TextButton", tabBar)
-    b.Size = UDim2.new(1/3,-6,1,0)
+    local b = Instance.new("Frame", tabBar)
+    b.Size = UDim2.new(1/3,-8,1,0)
     b.Position = UDim2.new((order-1)/3,(order-1)*6,0,0)
-    b.BackgroundColor3 = Color3.fromRGB(30,20,50)
-    b.Text = name
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 15
-    b.TextColor3 = color
-    Instance.new("UICorner", b)
+    b.BackgroundColor3 = Color3.fromRGB(28,18,45)
+    b.BorderSizePixel = 0
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0,12)
 
-    local s = Instance.new("UIStroke", b)
-    s.Thickness = 1.2
-    Instance.new("UIGradient", s).Color = ColorSequence.new{
+    -- 🔥 INNER BUTTON
+    local btn = Instance.new("TextButton", b)
+    btn.Size = UDim2.new(1,0,1,0)
+    btn.BackgroundTransparency = 1
+    btn.Text = name
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 15
+    btn.TextColor3 = color
+
+    -- 🔥 TEXT STROKE
+    local txtStroke = Instance.new("UIStroke", btn)
+    txtStroke.Thickness = 0.8
+    txtStroke.Transparency = 0.4
+    txtStroke.Color = color
+
+    -- 🔥 BORDER (MỎNG + GRADIENT)
+    local stroke = Instance.new("UIStroke", b)
+    stroke.Thickness = 1
+
+    local grad = Instance.new("UIGradient", stroke)
+    grad.Color = ColorSequence.new{
         ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(170,0,255))
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170,0,255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255,215,0))
     }
 
-    return b
+    -- 🔥 FAKE GLOW (NHẸ)
+    local glow = Instance.new("UIStroke", b)
+    glow.Thickness = 4
+    glow.Transparency = 0.9
+
+    local glowGrad = Instance.new("UIGradient", glow)
+    glowGrad.Color = grad.Color
+
+    -- 🔥 BACKGROUND GRADIENT
+    local bg = Instance.new("UIGradient", b)
+    bg.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(45,25,70)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(20,10,35))
+    }
+
+    return btn
 end
 
 local homeTab = createTab("HOME",1,Color3.fromRGB(0,255,180))
@@ -380,235 +411,5 @@ task.spawn(function()
         gain.Text = "Gain: +"..format(currentGain)
 
         totalGain.Text = "Total Gain: +"..format(getgenv().TotalGain)
-    end
-end)
--- 🔥 PLAYER TAB FULL FIX (HIỂN THỊ 100%)
-
-local scroll = Instance.new("ScrollingFrame", sections.Player)
-scroll.Size = UDim2.new(1,-10,1,-10)
-scroll.Position = UDim2.new(0,5,0,5)
-scroll.CanvasSize = UDim2.new(0,0,0,0)
-scroll.ScrollBarThickness = 4
-scroll.BackgroundTransparency = 1
-
--- 🔥 LAYOUT (PHẢI SET NGAY)
-local playerLayout = Instance.new("UIListLayout")
-playerLayout.Padding = UDim.new(0,6)
-playerLayout.SortOrder = Enum.SortOrder.LayoutOrder
-playerLayout.Parent = scroll
-
--- 🔥 HEADER
-local header = Instance.new("Frame")
-header.Size = UDim2.new(1,0,0,35)
-header.BackgroundTransparency = 1
-header.Parent = scroll
-
-local function makeHeader(txt, x, w)
-    local t = Instance.new("TextLabel", header)
-    t.Size = UDim2.new(w,0,1,0)
-    t.Position = UDim2.new(x,0,0,0)
-    t.BackgroundTransparency = 1
-    t.Text = txt
-    t.Font = Enum.Font.GothamBold
-    t.TextSize = 13
-    t.TextColor3 = Color3.fromRGB(255,215,0)
-end
-
-makeHeader("AVATAR",0,0.15)
-makeHeader("NAME",0.15,0.25)
-makeHeader("HP",0.40,0.15)
-makeHeader("LEVEL",0.55,0.15)
-makeHeader("DIST",0.70,0.30)
-
--- 🔥 HP COLOR
-local function getHPColor(p)
-    if p > 70 then return Color3.fromRGB(0,255,120)
-    elseif p > 30 then return Color3.fromRGB(255,200,0)
-    else return Color3.fromRGB(255,60,60)
-    end
-end
-
--- 🔥 CREATE ROW
-local function createRow(p)
-    local row = Instance.new("Frame")
-    row.Size = UDim2.new(1,0,0,45)
-    row.BackgroundColor3 = Color3.fromRGB(30,20,50)
-    Instance.new("UICorner", row).CornerRadius = UDim.new(0,10)
-
-    local rowstroke = Instance.new("UIStroke", row)
-    rowstroke.Thickness = 1
-
-    -- 🔥 AVATAR (ULTRA PREMIUM)
-
-    local imgHolder = Instance.new("Frame", row)
-    imgHolder.Size = UDim2.new(0.12,0,0.8,0)
-    imgHolder.Position = UDim2.new(0.01,0,0.1,0)
-    imgHolder.BackgroundTransparency = 1
-    
-    -- 🔥 BO GÓC
-    Instance.new("UICorner", imgHolder).CornerRadius = UDim.new(1,0)
-    
-    -- 🔥 IMAGE (HD HEADSHOT)
-    local img = Instance.new("ImageLabel", imgHolder)
-    img.Size = UDim2.new(1,0,1,0)
-    img.BackgroundTransparency = 1
-    img.Image = "rbxthumb://type=AvatarHeadShot&id="..p.UserId.."&w=180&h=180"
-    
-    Instance.new("UICorner", img).CornerRadius = UDim.new(1,0)
-    
-    -- 🔥 BORDER (GOLD + PURPLE)
-    local avastroke = Instance.new("UIStroke", imgHolder)
-    avastroke.Thickness = 2
-    
-    local grad = Instance.new("UIGradient", avastroke) -- ✅ FIX
-    grad.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170,0,255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(255,215,0))
-    }
-    
-    -- 🔥 GLOW
-    local glow = Instance.new("UIStroke", imgHolder)
-    glow.Thickness = 6
-    glow.Transparency = 0.85
-    
-    local glowGrad = Instance.new("UIGradient", glow)
-    glowGrad.Color = grad.Color
-    
-    -- 🔥 SHADOW (fake depth)
-    local shadow = Instance.new("Frame", imgHolder)
-    shadow.Size = UDim2.new(1,4,1,4)
-    shadow.Position = UDim2.new(0,-2,0,-2)
-    shadow.BackgroundColor3 = Color3.fromRGB(0,0,0)
-    shadow.BackgroundTransparency = 0.7
-    shadow.ZIndex = 0
-    Instance.new("UICorner", shadow).CornerRadius = UDim.new(1,0)
-    
-    img.ZIndex = 2
-    avastroke.ZIndex = 2
-    glow.ZIndex = 1
-    
-    -- 🔥 ANIMATE BORDER (MƯỢT)
-    task.spawn(function()
-        while imgHolder.Parent do
-            grad.Rotation = (grad.Rotation + 0.8) % 360
-            glowGrad.Rotation = grad.Rotation
-            task.wait(0.02)
-        end
-    end)
-    -- 🔥 NAME (FIX ALIGN)
-    local name = Instance.new("TextLabel", row)
-    name.Size = UDim2.new(0.25,0,1,0)
-    name.Position = UDim2.new(0.13,0,0,0) -- 🔥 FIX (0.12 avatar + 0.01 padding)
-    name.BackgroundTransparency = 1
-    name.Font = Enum.Font.GothamSemibold
-    name.TextSize = 13
-    name.TextColor3 = Color3.fromRGB(255,255,255)
-    name.TextXAlignment = Enum.TextXAlignment.Left
-    name.Text = p.Name
-
-    -- 🔥 HP BAR
-    local hpBG = Instance.new("Frame", row)
-    hpBG.Size = UDim2.new(0.12,0,0.4,0)
-    hpBG.Position = UDim2.new(0.42,0,0.3,0)
-    hpBG.BackgroundColor3 = Color3.fromRGB(50,50,60)
-    Instance.new("UICorner", hpBG)
-
-    local hp = Instance.new("Frame", hpBG)
-    hp.Size = UDim2.new(1,0,1,0)
-    Instance.new("UICorner", hp)
-
-    -- 🔥 LEVEL
-    local lvl = Instance.new("TextLabel", row)
-    lvl.Size = UDim2.new(0.15,0,1,0)
-    lvl.Position = UDim2.new(0.55,0,0,0)
-    lvl.BackgroundTransparency = 1
-    lvl.Font = Enum.Font.Gotham
-    lvl.TextSize = 13
-    lvl.TextColor3 = Color3.fromRGB(200,200,255)
-
-    -- 🔥 DIST
-    local dist = Instance.new("TextLabel", row)
-    dist.Size = UDim2.new(0.3,0,1,0)
-    dist.Position = UDim2.new(0.70,0,0,0)
-    dist.BackgroundTransparency = 1
-    dist.Font = Enum.Font.Gotham
-    dist.TextSize = 13
-    dist.TextColor3 = Color3.fromRGB(180,180,220)
-
-    task.spawn(function()
-        while row.Parent do
-            task.wait(0.3)
-            
-            local char = p.Character
-            local myChar = lp.Character
-    
-            if char and myChar then 
-    
-            local hum = char:FindFirstChild("Humanoid")
-            local root = char:FindFirstChild("HumanoidRootPart")
-            local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    
-            -- 🔥 HP
-            if hum and hum.MaxHealth > 0 then
-                local percent = math.clamp((hum.Health / hum.MaxHealth) * 100, 0, 100)
-                hp.Size = UDim2.new(percent/100,0,1,0)
-                hp.BackgroundColor3 = getHPColor(percent)
-            else
-                hp.Size = UDim2.new(0,0,1,0)
-            end
-    
-            -- 🔥 LEVEL (fallback leaderstats)
-            local levelText = "N/A"
-            pcall(function()
-                local data = p:FindFirstChild("Data")
-                if data and data:FindFirstChild("Level") then
-                    levelText = data.Level.Value
-                else
-                    local stats = p:FindFirstChild("leaderstats")
-                    if stats and stats:FindFirstChild("Level") then
-                        levelText = stats.Level.Value
-                    end
-                end
-            end)
-            lvl.Text = "Lv "..tostring(levelText)
-    
-            -- 🔥 DIST
-            if root and myRoot then
-                local d = (root.Position - myRoot.Position).Magnitude
-                dist.Text = math.floor(d).."m"
-            else
-                dist.Text = "N/A"
-            end
-        end
-    end)
-return row
--- 🔥 CLEAR ROWS (KHÔNG XÓA HEADER)
-local function clearRows()
-    for _, v in ipairs(scroll:GetChildren()) do
-        if v:IsA("Frame") and v ~= header then
-            v:Destroy()
-        end
-    end
-end
-
--- 🔥 UPDATE LIST
-task.spawn(function()
-    while true do
-        task.wait(2)
-
-        clearRows()
-
-        local total = 40
-
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= lp then 
-                local row = createRow(p)
-                row.Parent = scroll
-                total += 50
-            end
-        end
-
-        scroll.CanvasSize = UDim2.new(0,0,0,total)
     end
 end)
