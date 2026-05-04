@@ -542,6 +542,7 @@ local function createRow(p)
     task.spawn(function()
         while row.Parent do
             task.wait(0.3)
+            local p = game.Players
     
             local char = p.Character
             local myChar = lp.Character
@@ -561,7 +562,7 @@ local function createRow(p)
                 hp.Size = UDim2.new(0,0,1,0)
             end
     
-            -- ?? LEVEL (fallback leaderstats)
+            -- 🔥 LEVEL (fallback leaderstats)
             local levelText = "N/A"
             pcall(function()
                 local data = p:FindFirstChild("Data")
