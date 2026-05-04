@@ -1,0 +1,617 @@
+-- 🔥 FYNIX AUTO BOUNTY M1 (FULL REMAKE CLEAN + PREMIUM)
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local lp = Players.LocalPlayer
+
+-- 🔥 GUI RESET
+pcall(function()
+    game.CoreGui:FindFirstChild("FynixM1"):Destroy()
+end)
+
+-- 🔥 MAIN GUI
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.Name = "FynixM1"
+
+-- 🔥 GLASS UI (MỜ + GRADIENT VIỀN ĐẸP)
+
+-- 🔥 MAIN UI (FIX FULL)
+
+local isMobile = UIS.TouchEnabled
+
+local main = Instance.new("Frame", gui)
+main.Size = isMobile and UDim2.new(0.9,0,0.8,0) or UDim2.new(0,420,0,420)
+main.Position = UDim2.new(0.5,0,0.5,0)
+main.AnchorPoint = Vector2.new(0.5,0.5)
+main.BackgroundColor3 = Color3.fromRGB(25,15,40)
+main.BackgroundTransparency = 0.1
+main.BorderSizePixel = 0
+main.ClipsDescendants = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,16)
+
+-- 🔥 BACKGROUND GRADIENT (VISIBLE)
+local bg = Instance.new("UIGradient", main)
+bg.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60,25,90)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20,10,35))
+}
+
+-- 🔥 FAKE GRADIENT BORDER (WORK 100%)
+local border = Instance.new("Frame", main)
+border.Size = UDim2.new(1,4,1,4)
+border.Position = UDim2.new(0,-2,0,-2)
+border.BackgroundTransparency = 1
+border.ZIndex = -1
+Instance.new("UICorner", border).CornerRadius = UDim.new(0,18)
+
+local borderStroke = Instance.new("UIStroke", border)
+borderStroke.Thickness = 2
+
+local borderGrad = Instance.new("UIGradient", borderStroke)
+borderGrad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170,0,255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255,215,0))
+}
+
+-- 🔥 GLOW (VISIBLE)
+local glow = Instance.new("UIStroke", main)
+glow.Thickness = 8
+glow.Transparency = 0.7
+
+local glowGrad = Instance.new("UIGradient", glow)
+glowGrad.Color = borderGrad.Color
+
+-- 🔥 ANIMATE
+task.spawn(function()
+    while main.Parent do
+        borderGrad.Rotation = (borderGrad.Rotation + 1) % 360
+        glowGrad.Rotation = borderGrad.Rotation
+        task.wait(0.02)
+    end
+end)
+
+-- 🔥 DRAG (FIX CHUẨN)
+local dragging, dragStart, startPos
+
+main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = main.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if dragging then
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+-- 🔥 TITLE (GIỮ NGUYÊN)
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1,0,0,55)
+title.BackgroundTransparency = 1
+title.Text = "Fynix Auto Bounty M1"
+title.Font = Enum.Font.GothamBlack
+title.TextSize = 26
+title.TextColor3 = Color3.fromRGB(255,255,255)
+
+local grad = Instance.new("UIGradient", title)
+grad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170,0,255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255,215,0))
+}
+
+local stroke = Instance.new("UIStroke", title)
+stroke.Thickness = 1.5
+stroke.Color = Color3.fromRGB(255,200,0)
+stroke.Transparency = 0.3
+
+local glow1 = Instance.new("UIStroke", title)
+glow1.Thickness = 4
+glow1.Transparency = 0.85
+
+local glowGrad = Instance.new("UIGradient", glow1)
+glowGrad.Color = grad.Color
+
+task.spawn(function()
+    while title.Parent do
+        grad.Rotation = (grad.Rotation + 0.6) % 360
+        glowGrad.Rotation = grad.Rotation
+        task.wait(0.02)
+    end
+end)
+
+-- 🔥 TAB BAR
+local tabBar = Instance.new("Frame", main)
+tabBar.Size = UDim2.new(1,-20,0,40)
+tabBar.Position = UDim2.new(0,10,0,55)
+tabBar.BackgroundTransparency = 1
+
+local function createTab(name, order, color)
+    local b = Instance.new("TextButton", tabBar)
+    b.Size = UDim2.new(1/3,-6,1,0)
+    b.Position = UDim2.new((order-1)/3,(order-1)*6,0,0)
+    b.BackgroundColor3 = Color3.fromRGB(30,20,50)
+    b.Text = name
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 15
+    b.TextColor3 = color
+    Instance.new("UICorner", b)
+
+    local s = Instance.new("UIStroke", b)
+    s.Thickness = 1.2
+    Instance.new("UIGradient", s).Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(170,0,255))
+    }
+
+    return b
+end
+
+local homeTab = createTab("HOME",1,Color3.fromRGB(0,255,180))
+local playerTab = createTab("PLAYER",2,Color3.fromRGB(255,200,0))
+local settingTab = createTab("SETTING",3,Color3.fromRGB(170,0,255))
+
+-- 🔥 SECTIONS
+local function newSection()
+    local f = Instance.new("Frame", main)
+    f.Size = UDim2.new(1,-20,1,-100)
+    f.Position = UDim2.new(0,10,0,95)
+    f.BackgroundColor3 = Color3.fromRGB(28,18,45)
+    f.Visible = false
+    Instance.new("UICorner", f)
+
+    local s = Instance.new("UIStroke", f)
+    s.Thickness = 1.3
+    Instance.new("UIGradient", s).Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(170,0,255))
+    }
+
+    return f
+end
+
+local sections = {
+    Home = newSection(),
+    Player = newSection(),
+    Setting = newSection()
+}
+
+-- 🔥 SWITCH
+local function switch(name)
+    for _,v in pairs(sections) do v.Visible = false end
+    sections[name].Visible = true
+end
+
+homeTab.MouseButton1Click:Connect(function() switch("Home") end)
+playerTab.MouseButton1Click:Connect(function() switch("Player") end)
+settingTab.MouseButton1Click:Connect(function() switch("Setting") end)
+
+switch("Home")
+
+-- 🔥 FORMAT
+local function format(n)
+    if n >= 1e6 then return string.format("%.2fM", n/1e6)
+    elseif n >= 1e3 then return string.format("%.1fK", n/1e3)
+    else return tostring(n) end
+end
+
+-- 🔥 LINE
+-- 🔥 SCROLL (CHO HOME)
+local homeScroll = Instance.new("ScrollingFrame", sections.Home)
+homeScroll.Size = UDim2.new(1, -10, 1, -10)
+homeScroll.Position = UDim2.new(0, 5, 0, 5)
+homeScroll.CanvasSize = UDim2.new(0,0,0,0)
+homeScroll.ScrollBarThickness = 4
+homeScroll.BackgroundTransparency = 1
+
+local layout = Instance.new("UIListLayout", homeScroll)
+layout.Padding = UDim.new(0,6)
+
+-- 🔥 LINE FIX (AUTO NẰM TRONG SCROLL)
+local function line()
+    local f = Instance.new("TextLabel", homeScroll)
+    f.Size = UDim2.new(1,-10,0,32)
+    f.BackgroundTransparency = 1
+    f.Font = Enum.Font.GothamSemibold
+    f.TextSize = 14
+    f.TextColor3 = Color3.fromRGB(255,235,170)
+    f.TextXAlignment = Enum.TextXAlignment.Left
+    f.TextWrapped = true
+    return f
+end
+
+-- 🔥 CREATE LINE (KHÔNG CẦN Y NỮA)
+local target = line()
+local uptime = line()
+local totalUp = line()
+local bounty = line()
+local gain = line()
+local totalGain = line()
+
+-- 🔥 AUTO CANVAS SIZE
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    homeScroll.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
+end)
+
+
+-- 🔥 FILE SETUP
+local folder = "Fynix Hub Auto Bounty"
+local fileUptime = folder.."/TotalUptime.txt"
+local fileGain = folder.."/TotalGain.txt"
+
+if not isfolder(folder) then
+    makefolder(folder)
+end
+
+-- 🔥 LOAD DATA
+local savedUptime = isfile(fileUptime) and tonumber(readfile(fileUptime)) or 0
+local savedGain = isfile(fileGain) and tonumber(readfile(fileGain)) or 0
+
+getgenv().TotalUptime = savedUptime
+getgenv().TotalGain = savedGain
+
+local start = tick()
+local lastGainTick = 0
+
+-- 🔥 SAVE FUNCTION
+local function saveAll()
+    local session = math.floor(tick() - start)
+    writefile(fileUptime, tostring(savedUptime + session))
+    writefile(fileGain, tostring(getgenv().TotalGain))
+end
+
+-- 🔥 AUTO SAVE (ANTI CRASH)
+task.spawn(function()
+    while true do
+        task.wait(5)
+        saveAll()
+    end
+end)
+-- 🔥 FORMAT NUMBER (DẤU PHẨY 1,234,567)
+local function format(num)
+    num = tonumber(num) or 0
+    local str = tostring(math.floor(num))
+
+    -- thêm dấu ,
+    while true do
+        str, k = str:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
+        if k == 0 then break end
+    end
+
+    return str
+end
+
+-- 🔥 FORMAT TIME (GIỮ NGUYÊN)
+local function formatTime(sec)
+    sec = math.floor(sec)
+
+    local h = math.floor(sec / 3600)
+    local m = math.floor((sec % 3600) / 60)
+    local s = sec % 60
+
+    if h > 0 then
+        return string.format("%dh %02dm", h, m)
+    elseif m > 0 then
+        return string.format("%dm %02ds", m, s)
+    else
+        return sec.."s"
+    end
+end
+-- 🔥 FILE
+
+
+-- 🔥 LOAD TOTAL GAIN
+local savedGain = isfile(fileGain) and tonumber(readfile(fileGain)) or 0
+getgenv().TotalGain = savedGain
+getgenv().LastGain = 0
+
+-- 🔥 GAIN TRACKER (ADD TRƯỚC LOOP)
+local oldBounty = nil
+
+task.spawn(function()
+    local stats = lp:WaitForChild("leaderstats",10)
+    local val = stats and (stats:FindFirstChild("Bounty") or stats:FindFirstChild("Bounty/Honor"))
+    if not val then return end
+
+    oldBounty = val.Value -- ❌ bỏ lần đầu
+
+    val.Changed:Connect(function(newVal)
+        if oldBounty then
+            local diff = newVal - oldBounty
+            if diff > 0 then
+                getgenv().LastGain = diff
+                getgenv().TotalGain += diff
+
+                -- 🔥 SAVE FILE
+                writefile(fileGain, tostring(getgenv().TotalGain))
+            end
+        end
+        oldBounty = newVal
+    end)
+end)
+
+-- 🔥 MAIN LOOP (KHÔNG CỘNG GAIN Ở ĐÂY NỮA)
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+
+        -- 🔥 TARGET
+        local t = getgenv().Targets
+        if t and #t > 0 then
+            target.Text = "Target: "..t[1].Name
+        else
+            target.Text = "Target: Searching..."
+        end
+
+        -- 🔥 UPTIME
+        local session = math.floor(tick() - start)
+        local total = savedUptime + session
+
+        uptime.Text = "Uptime: "..formatTime(session)
+        totalUp.Text = "Total Uptime: "..formatTime(total)
+
+        getgenv().TotalUptime = total
+
+        -- 🔥 BOUNTY
+        local b = 0
+        pcall(function()
+            local stats = lp:FindFirstChild("leaderstats")
+            local val = stats and (stats:FindFirstChild("Bounty") or stats:FindFirstChild("Bounty/Honor"))
+            if val then b = val.Value end
+        end)
+
+        bounty.Text = "Bounty: "..format(b)
+
+        -- 🔥 GAIN (CHỈ HIỂN THỊ)
+        local currentGain = getgenv().LastGain or 0
+        gain.Text = "Gain: +"..format(currentGain)
+
+        totalGain.Text = "Total Gain: +"..format(getgenv().TotalGain)
+    end
+end)
+-- 🔥 PLAYER TAB FULL FIX (HIỂN THỊ 100%)
+
+local scroll = Instance.new("ScrollingFrame", sections.Player)
+scroll.Size = UDim2.new(1,-10,1,-10)
+scroll.Position = UDim2.new(0,5,0,5)
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+scroll.ScrollBarThickness = 4
+scroll.BackgroundTransparency = 1
+
+-- 🔥 LAYOUT (PHẢI SET NGAY)
+local playerLayout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0,6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = scroll
+
+-- 🔥 HEADER
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1,0,0,35)
+header.BackgroundTransparency = 1
+header.Parent = scroll
+
+local function makeHeader(txt, x, w)
+    local t = Instance.new("TextLabel", header)
+    t.Size = UDim2.new(w,0,1,0)
+    t.Position = UDim2.new(x,0,0,0)
+    t.BackgroundTransparency = 1
+    t.Text = txt
+    t.Font = Enum.Font.GothamBold
+    t.TextSize = 13
+    t.TextColor3 = Color3.fromRGB(255,215,0)
+end
+
+makeHeader("AVATAR",0,0.15)
+makeHeader("NAME",0.15,0.25)
+makeHeader("HP",0.40,0.15)
+makeHeader("LEVEL",0.55,0.15)
+makeHeader("DIST",0.70,0.30)
+
+-- 🔥 HP COLOR
+local function getHPColor(p)
+    if p > 70 then return Color3.fromRGB(0,255,120)
+    elseif p > 30 then return Color3.fromRGB(255,200,0)
+    else return Color3.fromRGB(255,60,60)
+    end
+end
+
+-- 🔥 CREATE ROW
+local function createRow(p)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,0,0,45)
+    row.BackgroundColor3 = Color3.fromRGB(30,20,50)
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0,10)
+
+    local rowstroke = Instance.new("UIStroke", row)
+    rowstroke.Thickness = 1
+
+    -- 🔥 AVATAR (ULTRA PREMIUM)
+
+    local imgHolder = Instance.new("Frame", row)
+    imgHolder.Size = UDim2.new(0.12,0,0.8,0)
+    imgHolder.Position = UDim2.new(0.01,0,0.1,0)
+    imgHolder.BackgroundTransparency = 1
+    
+    -- 🔥 BO GÓC
+    Instance.new("UICorner", imgHolder).CornerRadius = UDim.new(1,0)
+    
+    -- 🔥 IMAGE (HD HEADSHOT)
+    local img = Instance.new("ImageLabel", imgHolder)
+    img.Size = UDim2.new(1,0,1,0)
+    img.BackgroundTransparency = 1
+    img.Image = "rbxthumb://type=AvatarHeadShot&id="..p.UserId.."&w=180&h=180"
+    
+    Instance.new("UICorner", img).CornerRadius = UDim.new(1,0)
+    
+    -- 🔥 BORDER (GOLD + PURPLE)
+    local avastroke = Instance.new("UIStroke", imgHolder)
+    avastroke.Thickness = 2
+    
+    local grad = Instance.new("UIGradient", avastroke) -- ✅ FIX
+    grad.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170,0,255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255,215,0))
+    }
+    
+    -- 🔥 GLOW
+    local glow = Instance.new("UIStroke", imgHolder)
+    glow.Thickness = 6
+    glow.Transparency = 0.85
+    
+    local glowGrad = Instance.new("UIGradient", glow)
+    glowGrad.Color = grad.Color
+    
+    -- 🔥 SHADOW (fake depth)
+    local shadow = Instance.new("Frame", imgHolder)
+    shadow.Size = UDim2.new(1,4,1,4)
+    shadow.Position = UDim2.new(0,-2,0,-2)
+    shadow.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    shadow.BackgroundTransparency = 0.7
+    shadow.ZIndex = 0
+    Instance.new("UICorner", shadow).CornerRadius = UDim.new(1,0)
+    
+    img.ZIndex = 2
+    stroke.ZIndex = 2
+    glow.ZIndex = 1
+    
+    -- 🔥 ANIMATE BORDER (MƯỢT)
+    task.spawn(function()
+        while imgHolder.Parent do
+            grad.Rotation = (grad.Rotation + 0.8) % 360
+            glowGrad.Rotation = grad.Rotation
+            task.wait(0.02)
+        end
+    end)
+    -- 🔥 NAME (FIX ALIGN)
+    local name = Instance.new("TextLabel", row)
+    name.Size = UDim2.new(0.25,0,1,0)
+    name.Position = UDim2.new(0.13,0,0,0) -- 🔥 FIX (0.12 avatar + 0.01 padding)
+    name.BackgroundTransparency = 1
+    name.Font = Enum.Font.GothamSemibold
+    name.TextSize = 13
+    name.TextColor3 = Color3.fromRGB(255,255,255)
+    name.TextXAlignment = Enum.TextXAlignment.Left
+    name.Text = p.Name
+
+    -- 🔥 HP BAR
+    local hpBG = Instance.new("Frame", row)
+    hpBG.Size = UDim2.new(0.12,0,0.4,0)
+    hpBG.Position = UDim2.new(0.42,0,0.3,0)
+    hpBG.BackgroundColor3 = Color3.fromRGB(50,50,60)
+    Instance.new("UICorner", hpBG)
+
+    local hp = Instance.new("Frame", hpBG)
+    hp.Size = UDim2.new(1,0,1,0)
+    Instance.new("UICorner", hp)
+
+    -- 🔥 LEVEL
+    local lvl = Instance.new("TextLabel", row)
+    lvl.Size = UDim2.new(0.15,0,1,0)
+    lvl.Position = UDim2.new(0.55,0,0,0)
+    lvl.BackgroundTransparency = 1
+    lvl.Font = Enum.Font.Gotham
+    lvl.TextSize = 13
+    lvl.TextColor3 = Color3.fromRGB(200,200,255)
+
+    -- 🔥 DIST
+    local dist = Instance.new("TextLabel", row)
+    dist.Size = UDim2.new(0.3,0,1,0)
+    dist.Position = UDim2.new(0.70,0,0,0)
+    dist.BackgroundTransparency = 1
+    dist.Font = Enum.Font.Gotham
+    dist.TextSize = 13
+    dist.TextColor3 = Color3.fromRGB(180,180,220)
+
+    task.spawn(function()
+        while row.Parent do
+            task.wait(0.3)
+            
+            local char = p.Character
+            local myChar = lp.Character
+    
+            if not (char and myChar) then return end
+    
+            local hum = char:FindFirstChild("Humanoid")
+            local root = char:FindFirstChild("HumanoidRootPart")
+            local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    
+            -- 🔥 HP
+            if hum and hum.MaxHealth > 0 then
+                local percent = math.clamp((hum.Health / hum.MaxHealth) * 100, 0, 100)
+                hp.Size = UDim2.new(percent/100,0,1,0)
+                hp.BackgroundColor3 = getHPColor(percent)
+            else
+                hp.Size = UDim2.new(0,0,1,0)
+            end
+    
+            -- 🔥 LEVEL (fallback leaderstats)
+            local levelText = "N/A"
+            pcall(function()
+                local data = p:FindFirstChild("Data")
+                if data and data:FindFirstChild("Level") then
+                    levelText = data.Level.Value
+                else
+                    local stats = p:FindFirstChild("leaderstats")
+                    if stats and stats:FindFirstChild("Level") then
+                        levelText = stats.Level.Value
+                    end
+                end
+            end)
+            lvl.Text = "Lv "..tostring(levelText)
+    
+            -- 🔥 DIST
+            if root and myRoot then
+                local d = (root.Position - myRoot.Position).Magnitude
+                dist.Text = math.floor(d).."m"
+            else
+                dist.Text = "N/A"
+            end
+        end
+    end)
+
+-- 🔥 CLEAR ROWS (KHÔNG XÓA HEADER)
+local function clearRows()
+    for _, v in ipairs(scroll:GetChildren()) do
+        if v:IsA("Frame") and v ~= header then
+            v:Destroy()
+        end
+    end
+end
+
+-- 🔥 UPDATE LIST
+task.spawn(function()
+    while true do
+        task.wait(2)
+
+        clearRows()
+
+        local total = 40
+
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= lp then 
+                local row = createRow(p)
+                row.Parent = scroll
+                total += 50
+            end
+        end
+
+        scroll.CanvasSize = UDim2.new(0,0,0,total)
+    end
+end)
