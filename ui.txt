@@ -453,7 +453,7 @@ local function createRow(p)
             local hum = char and char:FindFirstChild("Humanoid")
 
             if hum then
-                txt.Text = p.Name.." | "..math.floor(hum.Health)
+                txt.Text = p.Name.." | "..math.floor(p.Character.Humanoid.Health)
             else
                 txt.Text = p.Name.." | N/A"
             end
