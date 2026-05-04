@@ -395,7 +395,7 @@ scroll.ScrollBarThickness = 4
 scroll.BackgroundTransparency = 1
 
 -- 🔥 LAYOUT (PHẢI SET NGAY)
-local layout = Instance.new("UIListLayout")
+local playerLayout = Instance.new("UIListLayout")
 layout.Padding = UDim.new(0,6)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Parent = scroll
@@ -463,7 +463,7 @@ local function createRow(p)
     local avastroke = Instance.new("UIStroke", imgHolder)
     avastroke.Thickness = 2
     
-    local grad = Instance.new("UIGradient", stroke)
+    local grad = Instance.new("UIGradient", avastroke) -- ✅ FIX
     grad.Color = ColorSequence.new{
         ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
         ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170,0,255)),
