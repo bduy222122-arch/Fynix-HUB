@@ -540,7 +540,7 @@ task.spawn(function()
         local total = 40
 
         for _,p in ipairs(Players:GetPlayers()) do
-            if p ~= lp then
+            if p ~= lp then 
                 local row = createRow(p)
                 row.Parent = scroll
                 total += 50
