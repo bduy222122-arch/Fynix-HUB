@@ -465,16 +465,16 @@ local function createRow(p)
     name.TextXAlignment = Enum.TextXAlignment.Left
     name.Text = p.Name
 
-    -- 🔥 HP BAR
-    local hpBG = Instance.new("Frame", row)
-    hpBG.Size = UDim2.new(0.3,0,0.4,0)
-    hpBG.Position = UDim2.new(0.4,0,0.3,0)
-    hpBG.BackgroundColor3 = Color3.fromRGB(50,50,60)
-    Instance.new("UICorner", hpBG)
-
-    local hp = Instance.new("Frame", hpBG)
-    hp.Size = UDim2.new(1,0,1,0)
-    Instance.new("UICorner", hp)
+    -- 🔥 HP TEXT
+    local hp = Instance.new("TextLabel", row)
+    hp.Size = UDim2.new(0.3,0,1,0)
+    hp.Position = UDim2.new(0.4,0,0,0)
+    hp.BackgroundTransparency = 1
+    hp.Font = Enum.Font.GothamSemibold
+    hp.TextSize = 14
+    hp.TextColor3 = Color3.fromRGB(255,255,255)
+    hp.TextXAlignment = Enum.TextXAlignment.Center
+    hp.Text = "0"
 
     -- 🔥 DIST
     local dist = Instance.new("TextLabel", row)
@@ -489,25 +489,29 @@ local function createRow(p)
     task.spawn(function()
         while row.Parent do
             task.wait(0.3)
-
+    
             local char = p.Character
             local myChar = lp.Character
-
+    
             if char and myChar then
                 local hum = char:FindFirstChild("Humanoid")
                 local hrp = char:FindFirstChild("HumanoidRootPart")
                 local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-
-                -- HP
-                if hum and hum.MaxHealth > 0 then
-                    local percent = (hum.Health / hum.MaxHealth) * 100
-                    hp.Size = UDim2.new(percent/100,0,1,0)
-                    hp.BackgroundColor3 = getHPColor(percent)
+    
+                -- 🔥 HP TEXT UPDATE
+                if hum then
+                    local hpVal = math.floor(hum.Health)
+                    local max = math.floor(hum.MaxHealth)
+                
+                    hp.Text = hpVal.." / "..max
+                
+                    local percent = (hpVal / (max > 0 and max or 100)) * 100
+                    hp.TextColor3 = getHPColor(percent)
                 else
-                    hp.Size = UDim2.new(0,0,1,0)
+                    hp.Text = "N/A"
                 end
-
-                -- DIST
+    
+                -- 🔥 DIST
                 if hrp and myRoot then
                     local d = (hrp.Position - myRoot.Position).Magnitude
                     dist.Text = math.floor(d).."m"
@@ -517,8 +521,8 @@ local function createRow(p)
             end
         end
     end)
-
-    return row
+    
+    retun row
 end
 
 -- 🔥 REFRESH LIST (ỔN ĐỊNH)
