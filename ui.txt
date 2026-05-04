@@ -438,8 +438,8 @@ local function createRow(p)
     row.BackgroundColor3 = Color3.fromRGB(30,20,50)
     Instance.new("UICorner", row).CornerRadius = UDim.new(0,10)
 
-    local stroke = Instance.new("UIStroke", row)
-    stroke.Thickness = 1
+    local rowstroke = Instance.new("UIStroke", row)
+    rowstroke.Thickness = 1
 
     -- 🔥 AVATAR (ULTRA PREMIUM)
 
@@ -460,8 +460,8 @@ local function createRow(p)
     Instance.new("UICorner", img).CornerRadius = UDim.new(1,0)
     
     -- 🔥 BORDER (GOLD + PURPLE)
-    local stroke = Instance.new("UIStroke", imgHolder)
-    stroke.Thickness = 2
+    local avastroke = Instance.new("UIStroke", imgHolder)
+    avastroke.Thickness = 2
     
     local grad = Instance.new("UIGradient", stroke)
     grad.Color = ColorSequence.new{
@@ -542,12 +542,11 @@ local function createRow(p)
     task.spawn(function()
         while row.Parent do
             task.wait(0.3)
-            local p = game.Players
-    
+            
             local char = p.Character
             local myChar = lp.Character
     
-            if not (char and myChar) then continue end
+            if not (char and myChar) then return end
     
             local hum = char:FindFirstChild("Humanoid")
             local root = char:FindFirstChild("HumanoidRootPart")
