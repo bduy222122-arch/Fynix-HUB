@@ -423,8 +423,7 @@ scroll.Size = UDim2.new(1,0,1,0)
 scroll.BackgroundTransparency = 1
 scroll.ScrollBarThickness = 4
 
-local layout = Instance.new("UIListLayout")
-layout.Parent = scroll
+local layout = Instance.new("UIListLayout", scroll)
 layout.Padding = UDim.new(0,4)
 
 layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -432,14 +431,19 @@ layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 local function createRow(p)
-    local row = Instance.new("TextLabel")
-    row.Size = UDim2.new(1,0,0,25)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,0,0,28)
     row.BackgroundTransparency = 1
-    row.Font = Enum.Font.Gotham
-    row.TextSize = 14
-    row.TextColor3 = Color3.fromRGB(255,255,255)
-    row.TextXAlignment = Enum.TextXAlignment.Left
-    row.Text = p.Name.." | Loading..."
+
+    local txt = Instance.new("TextLabel", row)
+    txt.Size = UDim2.new(1,-10,1,0)
+    txt.Position = UDim2.new(0,5,0,0)
+    txt.BackgroundTransparency = 1
+    txt.Font = Enum.Font.Gotham
+    txt.TextSize = 14
+    txt.TextColor3 = Color3.fromRGB(255,255,255)
+    txt.TextXAlignment = Enum.TextXAlignment.Left
+    txt.Text = p.Name.." | Loading..."
 
     task.spawn(function()
         while row.Parent do
@@ -449,9 +453,9 @@ local function createRow(p)
             local hum = char and char:FindFirstChild("Humanoid")
 
             if hum then
-                row.Text = p.Name.." | "..math.floor(hum.Health)
+                txt.Text = p.Name.." | "..math.floor(hum.Health)
             else
-                row.Text = p.Name.." | N/A"
+                txt.Text = p.Name.." | N/A"
             end
         end
     end)
@@ -459,25 +463,28 @@ local function createRow(p)
     return row
 end
 
--- 🔥 INIT 1 LẦN (KHÔNG LOOP DESTROY NỮA)
+-- INIT
 for _,p in ipairs(Players:GetPlayers()) do
     if p ~= lp then
         createRow(p).Parent = scroll
     end
 end
 
--- 🔥 PLAYER JOIN
+-- JOIN
 Players.PlayerAdded:Connect(function(p)
     if p ~= lp then
         createRow(p).Parent = scroll
     end
 end)
 
--- 🔥 PLAYER LEAVE
+-- LEAVE
 Players.PlayerRemoving:Connect(function(p)
     for _,v in ipairs(scroll:GetChildren()) do
-        if v:IsA("TextLabel") and string.find(v.Text, p.Name) then
-            v:Destroy()
+        if v:IsA("Frame") then
+            local label = v:FindFirstChildOfClass("TextLabel")
+            if label and string.find(label.Text, p.Name) then
+                v:Destroy()
+            end
         end
     end
 end)
