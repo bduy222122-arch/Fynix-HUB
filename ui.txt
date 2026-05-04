@@ -413,3 +413,120 @@ task.spawn(function()
         totalGain.Text = "Total Gain: +"..format(getgenv().TotalGain)
     end
 end)
+-- 🔥 PLAYER TAB (CLEAN + STABLE)
+
+local playerScroll = Instance.new("ScrollingFrame", sections.Player)
+playerScroll.Size = UDim2.new(1,-10,1,-10)
+playerScroll.Position = UDim2.new(0,5,0,5)
+playerScroll.CanvasSize = UDim2.new(0,0,0,0)
+playerScroll.ScrollBarThickness = 4
+playerScroll.BackgroundTransparency = 1
+
+local playerLayout = Instance.new("UIListLayout", playerScroll)
+playerLayout.Padding = UDim.new(0,6)
+playerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- 🔥 HP COLOR
+local function getHPColor(p)
+    if p > 70 then return Color3.fromRGB(0,255,120)
+    elseif p > 30 then return Color3.fromRGB(255,200,0)
+    else return Color3.fromRGB(255,60,60)
+    end
+end
+
+-- 🔥 CREATE ROW
+local function createRow(p)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,0,0,40)
+    row.BackgroundColor3 = Color3.fromRGB(30,20,50)
+    row.BorderSizePixel = 0
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0,10)
+
+    -- NAME
+    local name = Instance.new("TextLabel", row)
+    name.Size = UDim2.new(0.35,0,1,0)
+    name.Position = UDim2.new(0,10,0,0)
+    name.BackgroundTransparency = 1
+    name.Font = Enum.Font.GothamSemibold
+    name.TextSize = 14
+    name.TextColor3 = Color3.fromRGB(255,255,255)
+    name.TextXAlignment = Enum.TextXAlignment.Left
+    name.Text = p.Name
+
+    -- HP BAR
+    local hpBG = Instance.new("Frame", row)
+    hpBG.Size = UDim2.new(0.3,0,0.4,0)
+    hpBG.Position = UDim2.new(0.4,0,0.3,0)
+    hpBG.BackgroundColor3 = Color3.fromRGB(50,50,60)
+    Instance.new("UICorner", hpBG)
+
+    local hp = Instance.new("Frame", hpBG)
+    hp.Size = UDim2.new(1,0,1,0)
+    Instance.new("UICorner", hp)
+
+    -- DIST
+    local dist = Instance.new("TextLabel", row)
+    dist.Size = UDim2.new(0.25,0,1,0)
+    dist.Position = UDim2.new(0.75,0,0,0)
+    dist.BackgroundTransparency = 1
+    dist.Font = Enum.Font.Gotham
+    dist.TextSize = 14
+    dist.TextColor3 = Color3.fromRGB(200,200,255)
+
+    -- 🔥 UPDATE
+    task.spawn(function()
+        while row.Parent do
+            task.wait(0.3)
+
+            local char = p.Character
+            local myChar = lp.Character
+
+            if char and myChar then
+                local hum = char:FindFirstChild("Humanoid")
+                local root = char:FindFirstChild("HumanoidRootPart")
+                local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+
+                -- HP
+                if hum and hum.MaxHealth > 0 then
+                    local percent = math.clamp((hum.Health / hum.MaxHealth) * 100, 0, 100)
+                    hp.Size = UDim2.new(percent/100,0,1,0)
+                    hp.BackgroundColor3 = getHPColor(percent)
+                else
+                    hp.Size = UDim2.new(0,0,1,0)
+                end
+
+                -- DIST
+                if root and myRoot then
+                    local d = (root.Position - myRoot.Position).Magnitude
+                    dist.Text = math.floor(d).."m"
+                else
+                    dist.Text = "N/A"
+                end
+            end
+        end
+    end)
+
+    return row
+end
+
+-- 🔥 UPDATE LIST
+task.spawn(function()
+    while true do
+        task.wait(2)
+
+        playerScroll:ClearAllChildren()
+        playerLayout.Parent = playerScroll
+
+        local total = 0
+
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= lp then
+                local row = createRow(p)
+                row.Parent = playerScroll
+                total += 45
+            end
+        end
+
+        playerScroll.CanvasSize = UDim2.new(0,0,0,total)
+    end
+end)
