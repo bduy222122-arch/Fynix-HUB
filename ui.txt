@@ -396,9 +396,9 @@ scroll.BackgroundTransparency = 1
 
 -- 🔥 LAYOUT (PHẢI SET NGAY)
 local playerLayout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0,6)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = scroll
+playerlayout.Padding = UDim.new(0,6)
+playerlayout.SortOrder = Enum.SortOrder.LayoutOrder
+playerlayout.Parent = scroll
 
 -- 🔥 HEADER
 local header = Instance.new("Frame")
@@ -488,7 +488,7 @@ local function createRow(p)
     Instance.new("UICorner", shadow).CornerRadius = UDim.new(1,0)
     
     img.ZIndex = 2
-    stroke.ZIndex = 2
+    avastroke.ZIndex = 2
     glow.ZIndex = 1
     
     -- 🔥 ANIMATE BORDER (MƯỢT)
