@@ -414,20 +414,17 @@ task.spawn(function()
     end
 end)
 
--- 🔥 PLAYER TAB (FIX LABEL NOT SHOW)
-
 local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
 
 local scroll = Instance.new("ScrollingFrame")
-scroll.Parent = sections.Player -- 🔥 QUAN TRỌNG
+scroll.Parent = sections.Player
 scroll.Size = UDim2.new(1,0,1,0)
 scroll.BackgroundTransparency = 1
 scroll.ScrollBarThickness = 4
-scroll.CanvasSize = UDim2.new(0,0,0,0)
 
 local layout = Instance.new("UIListLayout")
-layout.Parent = scroll -- 🔥 QUAN TRỌNG
+layout.Parent = scroll
 layout.Padding = UDim.new(0,4)
 
 layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -442,7 +439,7 @@ local function createRow(p)
     row.TextSize = 14
     row.TextColor3 = Color3.fromRGB(255,255,255)
     row.TextXAlignment = Enum.TextXAlignment.Left
-    row.Text = p.Name.." | ..."
+    row.Text = p.Name.." | Loading..."
 
     task.spawn(function()
         while row.Parent do
@@ -462,20 +459,25 @@ local function createRow(p)
     return row
 end
 
-task.spawn(function()
-    while true do
-        task.wait(2)
+-- 🔥 INIT 1 LẦN (KHÔNG LOOP DESTROY NỮA)
+for _,p in ipairs(Players:GetPlayers()) do
+    if p ~= lp then
+        createRow(p).Parent = scroll
+    end
+end
 
-        for _,v in ipairs(scroll:GetChildren()) do
-            if v:IsA("TextLabel") then
-                v:Destroy()
-            end
-        end
+-- 🔥 PLAYER JOIN
+Players.PlayerAdded:Connect(function(p)
+    if p ~= lp then
+        createRow(p).Parent = scroll
+    end
+end)
 
-        for _,p in ipairs(Players:GetPlayers()) do
-            if p ~= lp then
-                createRow(p).Parent = scroll
-            end
+-- 🔥 PLAYER LEAVE
+Players.PlayerRemoving:Connect(function(p)
+    for _,v in ipairs(scroll:GetChildren()) do
+        if v:IsA("TextLabel") and string.find(v.Text, p.Name) then
+            v:Destroy()
         end
     end
 end)
