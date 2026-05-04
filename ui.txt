@@ -453,25 +453,21 @@ local function createRow(p)
     end
     
     task.spawn(function()
-        local char = p.Character or p.CharacterAdded:Wait()
-    
         while row.Parent do
-            task.wait(0.3)
+            task.wait(0)
     
-            if not char or not char.Parent then
-                char = p.Character or p.CharacterAdded:Wait()
-            end
+            local char = p.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
     
-            local percent = GetHPPercent(char)
-    
-            if percent ~= nil then
+            if hum then
+                local percent = math.floor((hum.Health / hum.MaxHealth) * 100)
                 txt.Text = p.Name.." | "..percent.."%"
             else
-                txt.Text = p.Name.." | Loading..."
+                txt.Text = p.Name.." | Loading"
             end
         end
     end)
-
+    
     return row
 end
 
