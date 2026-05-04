@@ -484,7 +484,7 @@ local function createRow(p)
             local myChar = lp.Character
 
             if not (char and myChar) then
-                continue
+                return
             end
 
             local hum = char:FindFirstChild("Humanoid")
