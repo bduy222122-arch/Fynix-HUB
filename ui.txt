@@ -441,17 +441,68 @@ local function createRow(p)
     local stroke = Instance.new("UIStroke", row)
     stroke.Thickness = 1
 
-    -- 🔥 AVATAR
-    local img = Instance.new("ImageLabel", row)
-    img.Size = UDim2.new(0.12,0,0.8,0)
-    img.Position = UDim2.new(0.01,0,0.1,0)
-    img.BackgroundTransparency = 1
-    img.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..p.UserId.."&width=150&height=150&format=png"
+    -- 🔥 AVATAR (ULTRA PREMIUM)
 
-    -- 🔥 NAME
+    local imgHolder = Instance.new("Frame", row)
+    imgHolder.Size = UDim2.new(0.12,0,0.8,0)
+    imgHolder.Position = UDim2.new(0.01,0,0.1,0)
+    imgHolder.BackgroundTransparency = 1
+    
+    -- 🔥 BO GÓC
+    Instance.new("UICorner", imgHolder).CornerRadius = UDim.new(1,0)
+    
+    -- 🔥 IMAGE (HD HEADSHOT)
+    local img = Instance.new("ImageLabel", imgHolder)
+    img.Size = UDim2.new(1,0,1,0)
+    img.BackgroundTransparency = 1
+    img.Image = "rbxthumb://type=AvatarHeadShot&id="..p.UserId.."&w=180&h=180"
+    
+    Instance.new("UICorner", img).CornerRadius = UDim.new(1,0)
+    
+    -- 🔥 BORDER (GOLD + PURPLE)
+    local stroke = Instance.new("UIStroke", imgHolder)
+    stroke.Thickness = 2
+    
+    local grad = Instance.new("UIGradient", stroke)
+    grad.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,215,0)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170,0,255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255,215,0))
+    }
+    
+    -- 🔥 GLOW
+    local glow = Instance.new("UIStroke", imgHolder)
+    glow.Thickness = 6
+    glow.Transparency = 0.85
+    
+    local glowGrad = Instance.new("UIGradient", glow)
+    glowGrad.Color = grad.Color
+    
+    -- 🔥 SHADOW (fake depth)
+    local shadow = Instance.new("Frame", imgHolder)
+    shadow.Size = UDim2.new(1,4,1,4)
+    shadow.Position = UDim2.new(0,-2,0,-2)
+    shadow.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    shadow.BackgroundTransparency = 0.7
+    shadow.ZIndex = 0
+    Instance.new("UICorner", shadow).CornerRadius = UDim.new(1,0)
+    
+    img.ZIndex = 2
+    stroke.ZIndex = 2
+    glow.ZIndex = 1
+    
+    -- 🔥 ANIMATE BORDER (MƯỢT)
+    task.spawn(function()
+        while imgHolder.Parent do
+            grad.Rotation = (grad.Rotation + 0.8) % 360
+            glowGrad.Rotation = grad.Rotation
+            task.wait(0.02)
+        end
+    end)
+    -- 🔥 NAME (FIX ALIGN)
     local name = Instance.new("TextLabel", row)
     name.Size = UDim2.new(0.25,0,1,0)
-    name.Position = UDim2.new(0.15,0,0,0)
+    name.Position = UDim2.new(0.13,0,0,0) -- 🔥 FIX (0.12 avatar + 0.01 padding)
     name.BackgroundTransparency = 1
     name.Font = Enum.Font.GothamSemibold
     name.TextSize = 13
@@ -488,37 +539,52 @@ local function createRow(p)
     dist.TextSize = 13
     dist.TextColor3 = Color3.fromRGB(180,180,220)
 
-    -- 🔥 UPDATE
     task.spawn(function()
         while row.Parent do
-            task.wait(0.5)
-
+            task.wait(0.3)
+    
             local char = p.Character
-            local hum = char and char:FindFirstChild("Humanoid")
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-
-            if hum then
-                local percent = (hum.Health / hum.MaxHealth) * 100
+            local myChar = lp.Character
+    
+            if not (char and myChar) then continue end
+    
+            local hum = char:FindFirstChild("Humanoid")
+            local root = char:FindFirstChild("HumanoidRootPart")
+            local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    
+            -- 🔥 HP
+            if hum and hum.MaxHealth > 0 then
+                local percent = math.clamp((hum.Health / hum.MaxHealth) * 100, 0, 100)
                 hp.Size = UDim2.new(percent/100,0,1,0)
                 hp.BackgroundColor3 = getHPColor(percent)
+            else
+                hp.Size = UDim2.new(0,0,1,0)
             end
-
+    
+            -- ?? LEVEL (fallback leaderstats)
+            local levelText = "N/A"
             pcall(function()
                 local data = p:FindFirstChild("Data")
                 if data and data:FindFirstChild("Level") then
-                    lvl.Text = "Lv "..data.Level.Value
+                    levelText = data.Level.Value
+                else
+                    local stats = p:FindFirstChild("leaderstats")
+                    if stats and stats:FindFirstChild("Level") then
+                        levelText = stats.Level.Value
+                    end
                 end
             end)
-
-            if root and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-                local d = (root.Position - lp.Character.HumanoidRootPart.Position).Magnitude
+            lvl.Text = "Lv "..tostring(levelText)
+    
+            -- 🔥 DIST
+            if root and myRoot then
+                local d = (root.Position - myRoot.Position).Magnitude
                 dist.Text = math.floor(d).."m"
+            else
+                dist.Text = "N/A"
             end
         end
     end)
-
-    return row
-end
 
 -- 🔥 CLEAR ROWS (KHÔNG XÓA HEADER)
 local function clearRows()
