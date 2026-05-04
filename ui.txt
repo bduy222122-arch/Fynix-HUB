@@ -445,20 +445,27 @@ local function createRow(p)
     txt.TextXAlignment = Enum.TextXAlignment.Left
     txt.Text = p.Name.." | Loading..."
 
+    local function GetHPPercent(character)
+        if not character then return 0 end
+        local hum = character:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.MaxHealth <= 0 then return 0 end
+        return math.floor((hum.Health / hum.MaxHealth) * 100)
+    end
+    
     task.spawn(function()
         local char = p.Character or p.CharacterAdded:Wait()
-
+    
         while row.Parent do
             task.wait(0.3)
-
+    
             if not char or not char.Parent then
                 char = p.Character or p.CharacterAdded:Wait()
             end
-
-            local hum = char:FindFirstChildOfClass("Humanoid")
-
-            if hum then
-                txt.Text = p.Name.." | "..math.floor(hum.Health)
+    
+            local percent = GetHPPercent(char)
+    
+            if percent > 0 then
+                txt.Text = p.Name.." | "..percent.."%"
             else
                 txt.Text = p.Name.." | Loading..."
             end
