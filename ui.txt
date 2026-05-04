@@ -125,13 +125,13 @@ local glow1 = Instance.new("UIStroke", title)
 glow1.Thickness = 4
 glow1.Transparency = 0.85
 
-local glowGrad = Instance.new("UIGradient", glow1)
-glowGrad.Color = grad.Color
+local titleGlowGrad = Instance.new("UIGradient", glow1)
+titleGlowGrad.Color = grad.Color
 
 task.spawn(function()
     while title.Parent do
         grad.Rotation = (grad.Rotation + 0.6) % 360
-        glowGrad.Rotation = grad.Rotation
+        titleGlowGrad.Rotation = grad.Rotation
         task.wait(0.02)
     end
 end)
@@ -348,7 +348,7 @@ end
 
 
 -- 🔥 LOAD TOTAL GAIN
-local savedGain = isfile(fileGain) and tonumber(readfile(fileGain)) or 0
+
 getgenv().TotalGain = savedGain
 getgenv().LastGain = 0
 
