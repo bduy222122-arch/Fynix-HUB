@@ -501,12 +501,10 @@ local function createRow(p)
                 -- 🔥 HP TEXT UPDATE
                 if hum then
                     local hpVal = math.floor(hum.Health)
-                    local max = math.floor(hum.MaxHealth)
+                    
                 
-                    hp.Text = hpVal.." / "..max
-                
-                    local percent = (hpVal / (max > 0 and max or 100)) * 100
-                    hp.TextColor3 = getHPColor(percent)
+                    hp.Text = hpVal        
+                    
                 else
                     hp.Text = "N/A"
                 end
