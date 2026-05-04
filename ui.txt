@@ -509,7 +509,7 @@ local function createRow(p)
             end
         end
     end)
-return row
+
 -- 🔥 UPDATE LIST (FIX KHÔNG XÓA LAYOUT)
 task.spawn(function()
     while true do
