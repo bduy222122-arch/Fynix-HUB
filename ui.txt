@@ -413,3 +413,156 @@ task.spawn(function()
         totalGain.Text = "Total Gain: +"..format(getgenv().TotalGain)
     end
 end)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+--// UI Configuration
+local Theme = {
+    Background = Color3.fromRGB(25, 20, 35),
+    Row = Color3.fromRGB(35, 30, 50),
+    Text = Color3.fromRGB(240, 240, 240),
+    Accent = Color3.fromRGB(170, 90, 255),
+    Green = Color3.fromRGB(80, 220, 100),
+    Yellow = Color3.fromRGB(255, 220, 80),
+    Red = Color3.fromRGB(255, 80, 80)
+}
+
+--// Setup Container (Assume 'sections.Player' is a Frame passed or created)
+-- For the sake of a complete paste, we create the container here:
+local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 350, 0, 400)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -200)
+MainFrame.BackgroundColor3 = Theme.Background
+local MainCorner = Instance.new("UICorner", MainFrame)
+
+local PlayerScroll = Instance.new("ScrollingFrame", MainFrame)
+PlayerScroll.Name = "PlayerList"
+PlayerScroll.Size = UDim2.new(1, -20, 1, -20)
+PlayerScroll.Position = UDim2.new(0, 10, 0, 10)
+PlayerScroll.BackgroundTransparency = 1
+PlayerScroll.BorderSizePixel = 0
+PlayerScroll.ScrollBarThickness = 2
+PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+local ListLayout = Instance.new("UIListLayout", PlayerScroll)
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Padding = UDim.new(0, 5)
+
+--// Row Management
+local PlayerRows = {}
+
+local function createRow(player)
+    local Row = Instance.new("Frame")
+    Row.Name = player.Name
+    Row.Size = UDim2.new(1, -5, 0, 40)
+    Row.BackgroundColor3 = Theme.Row
+    Row.Parent = PlayerScroll
+    
+    local Corner = Instance.new("UICorner", Row)
+    Corner.CornerRadius = UDim.new(0, 6)
+    
+    local NameLabel = Instance.new("TextLabel", Row)
+    NameLabel.Name = "PlayerName"
+    NameLabel.Size = UDim2.new(0.4, 0, 1, 0)
+    NameLabel.Position = UDim2.new(0, 10, 0, 0)
+    NameLabel.BackgroundTransparency = 1
+    NameLabel.Text = player.DisplayName
+    NameLabel.TextColor3 = Theme.Text
+    NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    NameLabel.Font = Enum.Font.GothamSemibold
+    NameLabel.TextSize = 14
+
+    local HealthLabel = Instance.new("TextLabel", Row)
+    HealthLabel.Name = "HealthStatus"
+    HealthLabel.Size = UDim2.new(0.3, 0, 1, 0)
+    HealthLabel.Position = UDim2.new(0.4, 0, 0, 0)
+    HealthLabel.BackgroundTransparency = 1
+    HealthLabel.Text = "100%"
+    HealthLabel.TextColor3 = Theme.Green
+    HealthLabel.Font = Enum.Font.GothamMedium
+    HealthLabel.TextSize = 13
+
+    local DistanceLabel = Instance.new("TextLabel", Row)
+    DistanceLabel.Name = "DistanceStatus"
+    DistanceLabel.Size = UDim2.new(0.3, 0, 1, 0)
+    DistanceLabel.Position = UDim2.new(0.7, -10, 0, 0)
+    DistanceLabel.BackgroundTransparency = 1
+    DistanceLabel.Text = "0m"
+    DistanceLabel.TextColor3 = Theme.Accent
+    DistanceLabel.TextXAlignment = Enum.TextXAlignment.Right
+    DistanceLabel.Font = Enum.Font.Gotham
+    DistanceLabel.TextSize = 12
+
+    return Row
+end
+
+local function updateList()
+    -- Remove rows for players who left
+    for playerName, rowFrame in pairs(PlayerRows) do
+        if not Players:FindFirstChild(playerName) then
+            rowFrame:Destroy()
+            PlayerRows[playerName] = nil
+        end
+    end
+
+    -- Add/Update players
+    local currentPlayers = Players:GetPlayers()
+    for i = 1, #currentPlayers do
+        local p = currentPlayers[i]
+        if p ~= LocalPlayer then
+            local row = PlayerRows[p.Name]
+            if not row then
+                row = createRow(p)
+                PlayerRows[p.Name] = row
+            end
+
+            -- Update Stats Safely
+            local char = p.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local localHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+            if hum then
+                local hp = math.floor(hum.Health)
+                local maxHp = math.floor(hum.MaxHealth)
+                local percent = (hp / maxHp) * 100
+                
+                row.HealthStatus.Text = hp .. "/" .. maxHp
+                
+                if percent > 70 then
+                    row.HealthStatus.TextColor3 = Theme.Green
+                elseif percent > 30 then
+                    row.HealthStatus.TextColor3 = Theme.Yellow
+                else
+                    row.HealthStatus.TextColor3 = Theme.Red
+                end
+            else
+                row.HealthStatus.Text = "Dead"
+                row.HealthStatus.TextColor3 = Theme.Red
+            end
+
+            if hrp and localHrp then
+                local dist = math.floor((hrp.Position - localHrp.Position).Magnitude)
+                row.DistanceStatus.Text = dist .. "m"
+            else
+                row.DistanceStatus.Text = "---"
+            end
+        end
+    end
+    
+    PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y)
+end
+
+--// Loop Logic (0.3s refresh)
+task.spawn(function()
+    while task.wait(0.3) do
+        local success, err = pcall(updateList)
+        if not success then
+            warn("UI Update Error: " .. tostring(err))
+        end
+    end
+end)
+
