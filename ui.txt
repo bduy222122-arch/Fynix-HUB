@@ -413,16 +413,18 @@ task.spawn(function()
         totalGain.Text = "Total Gain: +"..format(getgenv().TotalGain)
     end
 end)
--- 🔥 PLAYER TAB (CLEAN + STABLE)
+-- 🔥 PLAYER TAB FIX FULL
 
-local playerScroll = Instance.new("ScrollingFrame", sections.Player)
+local playerScroll = Instance.new("ScrollingFrame")
+playerScroll.Parent = sections.Player -- 🔥 QUAN TRỌNG
 playerScroll.Size = UDim2.new(1,-10,1,-10)
 playerScroll.Position = UDim2.new(0,5,0,5)
 playerScroll.CanvasSize = UDim2.new(0,0,0,0)
 playerScroll.ScrollBarThickness = 4
 playerScroll.BackgroundTransparency = 1
 
-local playerLayout = Instance.new("UIListLayout", playerScroll)
+local playerLayout = Instance.new("UIListLayout")
+playerLayout.Parent = playerScroll -- 🔥 QUAN TRỌNG
 playerLayout.Padding = UDim.new(0,6)
 playerLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
@@ -473,7 +475,7 @@ local function createRow(p)
     dist.TextSize = 14
     dist.TextColor3 = Color3.fromRGB(200,200,255)
 
-    -- 🔥 UPDATE
+    -- 🔥 UPDATE (KHÔNG RETURN SAI)
     task.spawn(function()
         while row.Parent do
             task.wait(0.3)
@@ -481,27 +483,29 @@ local function createRow(p)
             local char = p.Character
             local myChar = lp.Character
 
-            if char and myChar then
-                local hum = char:FindFirstChild("Humanoid")
-                local root = char:FindFirstChild("HumanoidRootPart")
-                local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+            if not (char and myChar) then
+                continue
+            end
 
-                -- HP
-                if hum and hum.MaxHealth > 0 then
-                    local percent = math.clamp((hum.Health / hum.MaxHealth) * 100, 0, 100)
-                    hp.Size = UDim2.new(percent/100,0,1,0)
-                    hp.BackgroundColor3 = getHPColor(percent)
-                else
-                    hp.Size = UDim2.new(0,0,1,0)
-                end
+            local hum = char:FindFirstChild("Humanoid")
+            local root = char:FindFirstChild("HumanoidRootPart")
+            local myRoot = myChar:FindFirstChild("HumanoidRootPart")
 
-                -- DIST
-                if root and myRoot then
-                    local d = (root.Position - myRoot.Position).Magnitude
-                    dist.Text = math.floor(d).."m"
-                else
-                    dist.Text = "N/A"
-                end
+            -- HP
+            if hum and hum.MaxHealth > 0 then
+                local percent = math.clamp((hum.Health / hum.MaxHealth) * 100, 0, 100)
+                hp.Size = UDim2.new(percent/100,0,1,0)
+                hp.BackgroundColor3 = getHPColor(percent)
+            else
+                hp.Size = UDim2.new(0,0,1,0)
+            end
+
+            -- DIST
+            if root and myRoot then
+                local d = (root.Position - myRoot.Position).Magnitude
+                dist.Text = math.floor(d).."m"
+            else
+                dist.Text = "N/A"
             end
         end
     end)
@@ -509,12 +513,11 @@ local function createRow(p)
     return row
 end
 
--- 🔥 UPDATE LIST
+-- 🔥 UPDATE LIST (FIX KHÔNG XÓA LAYOUT)
 task.spawn(function()
     while true do
         task.wait(2)
 
-        -- 🔥 CHỈ XÓA ROW
         for _, v in ipairs(playerScroll:GetChildren()) do
             if v:IsA("Frame") then
                 v:Destroy()
