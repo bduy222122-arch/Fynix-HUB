@@ -284,7 +284,7 @@ task.spawn(function()
     end
 end)
 -- 🔥 FORMAT NUMBER (DẤU PHẨY 1,234,567)
-local function format(num)
+local function formatnumber(num)
     num = tonumber(num) or 0
     local str = tostring(math.floor(num))
 
@@ -352,12 +352,9 @@ task.spawn(function()
         task.wait(0.5)
 
         -- 🔥 TARGET
-        local t = getgenv().Targets
-        if t and #t > 0 then
-            target.Text = "Target: "..t[1].Name
-        else
-            target.Text = "Target: Searching..."
-        end
+        
+        target.Text = "test"
+        
 
         -- 🔥 UPTIME
         local session = math.floor(tick() - start)
@@ -396,9 +393,9 @@ scroll.BackgroundTransparency = 1
 
 -- 🔥 LAYOUT (PHẢI SET NGAY)
 local playerLayout = Instance.new("UIListLayout")
-playerlayout.Padding = UDim.new(0,6)
-playerlayout.SortOrder = Enum.SortOrder.LayoutOrder
-playerlayout.Parent = scroll
+playerLayout.Padding = UDim.new(0,6)
+playerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+playerLayout.Parent = scroll
 
 -- 🔥 HEADER
 local header = Instance.new("Frame")
@@ -546,7 +543,7 @@ local function createRow(p)
             local char = p.Character
             local myChar = lp.Character
     
-            if not (char and myChar) then return end
+            if char and myChar then 
     
             local hum = char:FindFirstChild("Humanoid")
             local root = char:FindFirstChild("HumanoidRootPart")
@@ -585,7 +582,7 @@ local function createRow(p)
             end
         end
     end)
-
+return row
 -- 🔥 CLEAR ROWS (KHÔNG XÓA HEADER)
 local function clearRows()
     for _, v in ipairs(scroll:GetChildren()) do
