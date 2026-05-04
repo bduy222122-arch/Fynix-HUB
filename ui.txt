@@ -514,8 +514,12 @@ task.spawn(function()
     while true do
         task.wait(2)
 
-        playerScroll:ClearAllChildren()
-        playerLayout.Parent = playerScroll
+        -- 🔥 CHỈ XÓA ROW
+        for _, v in ipairs(playerScroll:GetChildren()) do
+            if v:IsA("Frame") then
+                v:Destroy()
+            end
+        end
 
         local total = 0
 
