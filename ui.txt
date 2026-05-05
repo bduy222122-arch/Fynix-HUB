@@ -445,13 +445,6 @@ local function createRow(p)
     txt.TextXAlignment = Enum.TextXAlignment.Left
     txt.Text = p.Name.." | Loading..."
 
-    local function GetHPPercent(character)
-        if not character then return nil end
-        local hum = character:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.MaxHealth <= 0 then return nil end
-        return math.floor((hum.Health / hum.MaxHealth) * 100)
-    end
-    
     local function bindRow(p, txt)
         task.spawn(function()
             local function hook(char)
@@ -460,29 +453,27 @@ local function createRow(p)
                     txt.Text = p.Name.." | N/A"
                     return
                 end
-    
-                -- update ngay
-                txt.Text = p.Name.." | "..math.floor(hum.Health).."%"
-    
-                -- update realtime
+
+                txt.Text = p.Name.." | "..math.floor(hum.Health)
+
                 hum:GetPropertyChangedSignal("Health"):Connect(function()
-                    txt.Text = p.Name.." | "..math.floor(hum.Health).."%"
+                    txt.Text = p.Name.." | "..math.floor(hum.Health)
                 end)
             end
-    
-            -- lần đầu
+
             if p.Character then
                 hook(p.Character)
             end
-    
-            -- respawn
+
             p.CharacterAdded:Connect(hook)
         end)
     end
-    
+
+    -- 🔥 QUAN TRỌNG
+    bindRow(p, txt)
+
     return row
 end
-
 -- INIT
 for _,p in ipairs(Players:GetPlayers()) do
     if p ~= lp then
