@@ -421,173 +421,141 @@ local scroll = Instance.new("ScrollingFrame")
 scroll.Parent = sections.Player
 scroll.Size = UDim2.new(1,0,1,0)
 scroll.BackgroundTransparency = 1
-scroll.ScrollBarThickness = 4
+scroll.ScrollBarThickness = 2 -- Làm mỏng lại cho đẹp
 
 local layout = Instance.new("UIListLayout", scroll)
-layout.Padding = UDim.new(0,4)
+layout.Padding = UDim.new(0,5)
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     scroll.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y)
 end)
 
 local function createRow(p)
-    --// THEME SETTINGS
     local Theme = {
         RowBg = Color3.fromRGB(35, 32, 48),
         Text = Color3.fromRGB(255, 255, 255),
         SubText = Color3.fromRGB(180, 180, 180),
-        Accent = Color3.fromRGB(170, 90, 255),
         Green = Color3.fromRGB(0, 255, 127),
         Yellow = Color3.fromRGB(255, 255, 0),
         Red = Color3.fromRGB(255, 70, 70)
     }
 
-    --// MAIN ROW
     local row = Instance.new("Frame")
-    row.Name = p.Name .. "_Row"
-    row.Size = UDim2.new(1, -5, 0, 45) -- Độ cao hàng
+    row.Name = p.UserId -- Đặt tên frame bằng UserId để dễ quản lý xóa
+    row.Size = UDim2.new(1, -10, 0, 45)
     row.BackgroundColor3 = Theme.RowBg
     row.BorderSizePixel = 0
+    row.Parent = scroll
     
-    local corner = Instance.new("UICorner", row)
-    corner.CornerRadius = UDim.new(0, 10)
-
-    --// Cấu trúc Layout để các hàng ko dính nhau
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
     local stroke = Instance.new("UIStroke", row)
-    stroke.Color = Color3.fromRGB(50, 50, 70)
-    stroke.Thickness = 1
-    stroke.Transparency = 0.5
+    stroke.Color = Color3.fromRGB(60, 60, 80)
+    stroke.Transparency = 0.6
 
-    --// 1. AVATAR COLUMN
+    -- 1. AVATAR
     local avatarImg = Instance.new("ImageLabel", row)
-    avatarImg.Name = "Avatar"
     avatarImg.Size = UDim2.new(0, 32, 0, 32)
     avatarImg.Position = UDim2.new(0, 10, 0.5, -16)
     avatarImg.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-    avatarImg.BorderSizePixel = 0
-    avatarImg.Image = "rbxassetid://0" -- Placeholder
-    
-    Instance.new("UICorner", avatarImg).CornerRadius = UDim.new(1, 0) -- Làm avatar tròn quay
+    avatarImg.BackgroundTransparency = 0.5
+    avatarImg.Image = ""
+    Instance.new("UICorner", avatarImg).CornerRadius = UDim.new(1, 0)
 
-    -- Load ảnh avatar trong luồng riêng để ko lag UI
     task.spawn(function()
-        local success, content = pcall(function()
-            return game:GetService("Players"):GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
-        end)
-        if success then
-            avatarImg.Image = content
-        end
+        local content, isReady = Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+        avatarImg.Image = content
     end)
 
-    --// 2. NAME COLUMN
+    -- 2. NAME
     local nameTxt = Instance.new("TextLabel", row)
-    nameTxt.Name = "NameLabel"
     nameTxt.Size = UDim2.new(0.35, 0, 1, 0)
-    nameTxt.Position = UDim2.new(0, 55, 0, 0) -- Đẩy sang phải sau avatar
+    nameTxt.Position = UDim2.new(0, 50, 0, 0)
     nameTxt.BackgroundTransparency = 1
     nameTxt.Font = Enum.Font.GothamBold
-    nameTxt.TextSize = 14
+    nameTxt.TextSize = 13
     nameTxt.TextColor3 = Theme.Text
     nameTxt.TextXAlignment = Enum.TextXAlignment.Left
     nameTxt.Text = p.DisplayName
-    nameTxt.ClipsDescendants = true
 
-    --// 3. HP COLUMN
+    -- 3. HP
     local hpTxt = Instance.new("TextLabel", row)
-    hpTxt.Name = "HPLabel"
     hpTxt.Size = UDim2.new(0.25, 0, 1, 0)
     hpTxt.Position = UDim2.new(0.45, 0, 0, 0)
     hpTxt.BackgroundTransparency = 1
     hpTxt.Font = Enum.Font.GothamMedium
     hpTxt.TextSize = 13
-    hpTxt.TextColor3 = Theme.Green
-    hpTxt.Text = "Loading..."
+    hpTxt.Text = "Wait..."
 
-    --// 4. DISTANCE COLUMN
+    -- 4. DISTANCE
     local distTxt = Instance.new("TextLabel", row)
-    distTxt.Name = "DistanceLabel"
-    distTxt.Size = UDim2.new(0.2, 0, 1, 0)
-    distTxt.Position = UDim2.new(0.75, 0, 0, 0)
+    distTxt.Size = UDim2.new(0.25, 0, 1, 0)
+    distTxt.Position = UDim2.new(0.7, 0, 0, 0)
     distTxt.BackgroundTransparency = 1
     distTxt.Font = Enum.Font.Gotham
     distTxt.TextSize = 12
     distTxt.TextColor3 = Theme.SubText
     distTxt.TextXAlignment = Enum.TextXAlignment.Right
-    distTxt.Text = "0m"
+    distTxt.Text = "---"
 
-    --// UPDATE LOGIC
-    local function update()
-        local character = p.Character
-        local localChar = game.Players.LocalPlayer.Character
-        
-        -- Cập nhật HP
-        local hum = character and character:FindFirstChildOfClass("Humanoid")
-        if hum then
-            local hp = math.floor(hum.Health)
-            local maxHp = math.floor(hum.MaxHealth)
-            local percent = hp / maxHp
-            
-            hpTxt.Text = hp .. " HP"
-            
-            -- Đổi màu theo tình trạng máu
-            if percent > 0.7 then 
-                hpTxt.TextColor3 = Theme.Green
-            elseif percent > 0.3 then 
-                hpTxt.TextColor3 = Theme.Yellow
-            else 
-                hpTxt.TextColor3 = Theme.Red 
-            end
-        else
-            hpTxt.Text = "DEAD"
-            hpTxt.TextColor3 = Theme.Red
-        end
-
-        -- Cập nhật Khoảng cách
-        local hrp = character and character:FindFirstChild("HumanoidRootPart")
-        local lhrp = localChar and localChar:FindFirstChild("HumanoidRootPart")
-        
-        if hrp and lhrp then
-            local distance = math.floor((hrp.Position - lhrp.Position).Magnitude)
-            distTxt.Text = distance .. "m"
-        else
-            distTxt.Text = "---"
-        end
-    end
-
-    -- Loop cập nhật (0.4s để tối ưu hiệu năng)
+    -- UPDATE LOGIC (Sửa lỗi Loading/0m)
     task.spawn(function()
         while row and row.Parent do
-            pcall(update)
-            task.wait(0.4)
+            local char = p.Character
+            local lchar = lp.Character
+            
+            if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
+                local hum = char.Humanoid
+                local hrp = char.HumanoidRootPart
+                
+                -- Update HP
+                local hp = math.floor(hum.Health)
+                local maxHp = math.floor(hum.MaxHealth)
+                hpTxt.Text = hp .. "/" .. maxHp
+                
+                local percent = hp/maxHp
+                if percent > 0.7 then hpTxt.TextColor3 = Theme.Green
+                elseif percent > 0.3 then hpTxt.TextColor3 = Theme.Yellow
+                else hpTxt.TextColor3 = Theme.Red end
+                
+                -- Update Distance
+                if lchar and lchar:FindFirstChild("HumanoidRootPart") then
+                    local dist = math.floor((hrp.Position - lchar.HumanoidRootPart.Position).Magnitude)
+                    distTxt.Text = dist .. "m"
+                else
+                    distTxt.Text = "---"
+                end
+            else
+                hpTxt.Text = "Dead/Null"
+                hpTxt.TextColor3 = Theme.Red
+                distTxt.Text = "---"
+            end
+            task.wait(0.5)
         end
     end)
 
     return row
 end
 
-
--- INIT
-for _,p in ipairs(Players:GetPlayers()) do
-    if p ~= lp then
-        createRow(p).Parent = scroll
+-- QUẢN LÝ PLAYER
+local function fullRefresh()
+    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= lp then createRow(p) end
     end
 end
 
--- JOIN
 Players.PlayerAdded:Connect(function(p)
-    if p ~= lp then
-        createRow(p).Parent = scroll
+    task.wait(1) -- Đợi 1 chút để dữ liệu char sẵn sàng
+    if not scroll:FindFirstChild(tostring(p.UserId)) then
+        createRow(p)
     end
 end)
 
--- LEAVE
 Players.PlayerRemoving:Connect(function(p)
-    for _,v in ipairs(scroll:GetChildren()) do
-        if v:IsA("Frame") then
-            local label = v:FindFirstChildOfClass("TextLabel")
-            if label and string.find(label.Text, p.Name) then
-                v:Destroy()
-            end
-        end
-    end
+    local row = scroll:FindFirstChild(tostring(p.UserId))
+    if row then row:Destroy() end
 end)
+
+-- Chạy lần đầu
+fullRefresh()
