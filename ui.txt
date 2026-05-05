@@ -442,11 +442,10 @@ local function createRow(p)
     }
 
     local row = Instance.new("Frame")
-    row.Name = p.UserId -- Đặt tên frame bằng UserId để dễ quản lý xóa
+    row.Name = tostring(p.UserId)
     row.Size = UDim2.new(1, -10, 0, 45)
     row.BackgroundColor3 = Theme.RowBg
     row.BorderSizePixel = 0
-    row.Parent = scroll
     
     Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
     local stroke = Instance.new("UIStroke", row)
@@ -463,13 +462,13 @@ local function createRow(p)
     Instance.new("UICorner", avatarImg).CornerRadius = UDim.new(1, 0)
 
     task.spawn(function()
-        local content, isReady = Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+        local content = game:GetService("Players"):GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
         avatarImg.Image = content
     end)
 
     -- 2. NAME
     local nameTxt = Instance.new("TextLabel", row)
-    nameTxt.Size = UDim2.new(0.35, 0, 1, 0)
+    nameTxt.Size = UDim2.new(0.3, 0, 1, 0)
     nameTxt.Position = UDim2.new(0, 50, 0, 0)
     nameTxt.BackgroundTransparency = 1
     nameTxt.Font = Enum.Font.GothamBold
@@ -478,14 +477,15 @@ local function createRow(p)
     nameTxt.TextXAlignment = Enum.TextXAlignment.Left
     nameTxt.Text = p.DisplayName
 
-    -- 3. HP
+    -- 3. HP (Sử dụng logic từ bản ổn định của bạn)
     local hpTxt = Instance.new("TextLabel", row)
     hpTxt.Size = UDim2.new(0.25, 0, 1, 0)
-    hpTxt.Position = UDim2.new(0.45, 0, 0, 0)
+    hpTxt.Position = UDim2.new(0.4, 0, 0, 0)
     hpTxt.BackgroundTransparency = 1
     hpTxt.Font = Enum.Font.GothamMedium
     hpTxt.TextSize = 13
-    hpTxt.Text = "Wait..."
+    hpTxt.TextColor3 = Theme.Green
+    hpTxt.Text = "Loading..."
 
     -- 4. DISTANCE
     local distTxt = Instance.new("TextLabel", row)
@@ -498,44 +498,54 @@ local function createRow(p)
     distTxt.TextXAlignment = Enum.TextXAlignment.Right
     distTxt.Text = "---"
 
-    -- UPDATE LOGIC (Sửa lỗi Loading/0m)
+    -- LOGIC CẬP NHẬT HP (Hook của bạn)
+    local function updateHP(hum)
+        if hum then
+            local hp = math.floor(hum.Health)
+            local maxHp = math.floor(hum.MaxHealth)
+            hpTxt.Text = hp .. "/" .. maxHp
+            
+            local ratio = hp/maxHp
+            if ratio > 0.7 then hpTxt.TextColor3 = Theme.Green
+            elseif ratio > 0.3 then hpTxt.TextColor3 = Theme.Yellow
+            else hpTxt.TextColor3 = Theme.Red end
+        end
+    end
+
+    local function hook(char)
+        local hum = char:WaitForChild("Humanoid", 10)
+        if hum then
+            updateHP(hum)
+            hum:GetPropertyChangedSignal("Health"):Connect(function()
+                updateHP(hum)
+            end)
+        else
+            hpTxt.Text = "No Hum"
+        end
+    end
+
+    -- LOGIC CẬP NHẬT KHOẢNG CÁCH (Vòng lặp riêng cho nhẹ)
     task.spawn(function()
         while row and row.Parent do
             local char = p.Character
-            local lchar = lp.Character
-            
-            if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
-                local hum = char.Humanoid
-                local hrp = char.HumanoidRootPart
-                
-                -- Update HP
-                local hp = math.floor(hum.Health)
-                local maxHp = math.floor(hum.MaxHealth)
-                hpTxt.Text = hp .. "/" .. maxHp
-                
-                local percent = hp/maxHp
-                if percent > 0.7 then hpTxt.TextColor3 = Theme.Green
-                elseif percent > 0.3 then hpTxt.TextColor3 = Theme.Yellow
-                else hpTxt.TextColor3 = Theme.Red end
-                
-                -- Update Distance
-                if lchar and lchar:FindFirstChild("HumanoidRootPart") then
-                    local dist = math.floor((hrp.Position - lchar.HumanoidRootPart.Position).Magnitude)
-                    distTxt.Text = dist .. "m"
-                else
-                    distTxt.Text = "---"
-                end
+            local lChar = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and lChar and lChar:FindFirstChild("HumanoidRootPart") then
+                local dist = math.floor((char.HumanoidRootPart.Position - lChar.HumanoidRootPart.Position).Magnitude)
+                distTxt.Text = dist .. "m"
             else
-                hpTxt.Text = "Dead/Null"
-                hpTxt.TextColor3 = Theme.Red
                 distTxt.Text = "---"
             end
             task.wait(0.5)
         end
     end)
 
+    -- Khởi tạo Hook
+    if p.Character then task.spawn(hook, p.Character) end
+    p.CharacterAdded:Connect(hook)
+
     return row
 end
+
 
 -- QUẢN LÝ PLAYER
 local function fullRefresh()
