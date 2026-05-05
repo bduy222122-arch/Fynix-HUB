@@ -417,30 +417,42 @@ end)
 local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
 
---// 1. TẠO SCROLLING FRAME TRONG SECTION CỦA BẠN
--- Lưu ý: Đảm bảo 'sections.Player' đã được tạo trước đó từ Library
+--// 1. TẠO CONTAINER CHUẨN (Sửa lỗi không thấy gì)
+-- Chúng ta cần lấy Holder thực sự của Section đó
+local targetParent = sections.Player
+if targetParent:FindFirstChild("Holder") then
+    targetParent = targetParent.Holder
+end
+
+-- Xóa scroll cũ nếu có để tránh trùng lặp
+if targetParent:FindFirstChild("PlayerListScroll") then
+    targetParent.PlayerListScroll:Destroy()
+end
+
 local scroll = Instance.new("ScrollingFrame")
 scroll.Name = "PlayerListScroll"
-scroll.Parent = sections.Player -- Gắn vào Groupbox Player của Night Mystic
-scroll.Size = UDim2.new(1, 0, 1, 0)
+scroll.Parent = targetParent
+scroll.Size = UDim2.new(1, 0, 0, 250) -- ÉP CHIỀU CAO cố định 250px để chắc chắn nó hiện
 scroll.BackgroundTransparency = 1
 scroll.BorderSizePixel = 0
 scroll.ScrollBarThickness = 2
 scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+scroll.ClipsDescendants = false -- Đảm bảo không bị cắt mất nội dung
 
 local layout = Instance.new("UIListLayout", scroll)
 layout.Padding = UDim.new(0, 5)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- Tự động giãn khung cuộn khi có thêm người
+-- Tự động giãn khung cuộn
 layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
+    scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
 end)
 
---// 2. HÀM TẠO HÀNG (KẾT HỢP LOGIC HOOK ỔN ĐỊNH CỦA BẠN)
+--// 2. HÀM TẠO HÀNG (Dùng logic Hook ổn định của bạn)
 local function createRow(p)
     local Theme = {
-        RowBg = Color3.fromRGB(35, 32, 48),
+        RowBg = Color3.fromRGB(45, 42, 58), -- Làm sáng màu nền một chút để dễ phân biệt
         Text = Color3.fromRGB(255, 255, 255),
         SubText = Color3.fromRGB(180, 180, 180),
         Green = Color3.fromRGB(0, 255, 127),
@@ -450,17 +462,17 @@ local function createRow(p)
 
     local row = Instance.new("Frame")
     row.Name = tostring(p.UserId)
-    row.Size = UDim2.new(1, -10, 0, 45)
+    row.Size = UDim2.new(0.95, 0, 0, 45) -- Dùng 95% width để không bị dính sát lề
     row.BackgroundColor3 = Theme.RowBg
     row.BorderSizePixel = 0
     row.Parent = scroll
     
-    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
 
     -- 1. AVATAR
     local avatarImg = Instance.new("ImageLabel", row)
-    avatarImg.Size = UDim2.new(0, 32, 0, 32)
-    avatarImg.Position = UDim2.new(0, 10, 0.5, -16)
+    avatarImg.Size = UDim2.new(0, 30, 0, 30)
+    avatarImg.Position = UDim2.new(0, 8, 0.5, -15)
     avatarImg.BackgroundTransparency = 1
     avatarImg.Image = ""
     Instance.new("UICorner", avatarImg).CornerRadius = UDim.new(1, 0)
@@ -471,57 +483,55 @@ local function createRow(p)
         end)
     end)
 
-    -- 2. NAME (Dàn hàng ngang)
+    -- 2. NAME
     local nameTxt = Instance.new("TextLabel", row)
-    nameTxt.Size = UDim2.new(0, 100, 1, 0)
-    nameTxt.Position = UDim2.new(0, 50, 0, 0)
+    nameTxt.Size = UDim2.new(0, 90, 1, 0)
+    nameTxt.Position = UDim2.new(0, 45, 0, 0)
     nameTxt.BackgroundTransparency = 1
     nameTxt.Font = Enum.Font.GothamBold
-    nameTxt.TextSize = 13
+    nameTxt.TextSize = 12
     nameTxt.TextColor3 = Theme.Text
     nameTxt.TextXAlignment = Enum.TextXAlignment.Left
     nameTxt.Text = p.DisplayName
 
-    -- 3. HP (Dùng logic Hook ổn định của bạn)
+    -- 3. HP
     local hpTxt = Instance.new("TextLabel", row)
-    hpTxt.Size = UDim2.new(0, 80, 1, 0)
+    hpTxt.Size = UDim2.new(0, 70, 1, 0)
     hpTxt.Position = UDim2.new(0.45, 0, 0, 0)
     hpTxt.BackgroundTransparency = 1
     hpTxt.Font = Enum.Font.GothamMedium
-    hpTxt.TextSize = 13
+    hpTxt.TextSize = 12
     hpTxt.TextColor3 = Theme.Green
-    hpTxt.Text = "Loading..."
+    hpTxt.Text = "Wait..."
 
     -- 4. DISTANCE
     local distTxt = Instance.new("TextLabel", row)
-    distTxt.Size = UDim2.new(0, 60, 1, 0)
-    distTxt.Position = UDim2.new(0.95, -60, 0, 0)
+    distTxt.Size = UDim2.new(0, 50, 1, 0)
+    distTxt.Position = UDim2.new(0.95, -55, 0, 0)
     distTxt.BackgroundTransparency = 1
     distTxt.Font = Enum.Font.Gotham
-    distTxt.TextSize = 12
+    distTxt.TextSize = 11
     distTxt.TextColor3 = Theme.SubText
     distTxt.TextXAlignment = Enum.TextXAlignment.Right
     distTxt.Text = "---"
 
-    -- LOGIC CẬP NHẬT HP (Hook từ code ổn định của bạn)
-    local function updateStats(hum)
+    local function updateStats()
+        if not p.Parent then return end
+        local char = p.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        
         if hum then
             local hp = math.floor(hum.Health)
-            local maxHp = math.floor(hum.MaxHealth)
-            hpTxt.Text = hp .. "/" .. maxHp
-            
-            -- Thêm màu sắc cho sinh động
-            local ratio = hp/maxHp
-            if ratio > 0.7 then hpTxt.TextColor3 = Theme.Green
-            elseif ratio > 0.3 then hpTxt.TextColor3 = Theme.Yellow
-            else hpTxt.TextColor3 = Theme.Red end
+            hpTxt.Text = hp .. "/" .. math.floor(hum.MaxHealth)
+            local ratio = hum.Health / hum.MaxHealth
+            hpTxt.TextColor3 = (ratio > 0.7 and Theme.Green) or (ratio > 0.3 and Theme.Yellow) or Theme.Red
+        else
+            hpTxt.Text = "Dead"
+            hpTxt.TextColor3 = Theme.Red
         end
-        
-        -- Cập nhật khoảng cách luôn mỗi khi máu đổi hoặc loop
-        local lChar = lp.Character
-        local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-        local lhrp = lChar and lChar:FindFirstChild("HumanoidRootPart")
-        
+
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local lhrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
         if hrp and lhrp then
             distTxt.Text = math.floor((hrp.Position - lhrp.Position).Magnitude) .. "m"
         else
@@ -529,27 +539,22 @@ local function createRow(p)
         end
     end
 
+    -- Sử dụng cơ chế Hook ổn định của bạn
     local function hook(char)
-        local hum = char:WaitForChild("Humanoid", 15)
+        local hum = char:WaitForChild("Humanoid", 10)
         if hum then
-            updateStats(hum)
-            hum:GetPropertyChangedSignal("Health"):Connect(function()
-                updateStats(hum)
-            end)
-        else
-            hpTxt.Text = "N/A"
+            updateStats()
+            hum:GetPropertyChangedSignal("Health"):Connect(updateStats)
         end
     end
 
-    -- Khởi tạo ban đầu
     if p.Character then task.spawn(hook, p.Character) end
     p.CharacterAdded:Connect(hook)
 
-    -- Loop nhỏ 1 giây để cập nhật khoảng cách khi player đứng yên nhưng máu không đổi
+    -- Vòng lặp cập nhật khoảng cách mỗi 1 giây
     task.spawn(function()
         while row and row.Parent do
-            local hum = p.Character and p.Character:FindFirstChild("Humanoid")
-            updateStats(hum)
+            updateStats()
             task.wait(1)
         end
     end)
@@ -557,7 +562,7 @@ local function createRow(p)
     return row
 end
 
---// 3. QUẢN LÝ DANH SÁCH
+--// 3. LOGIC REFRESH
 local function fullRefresh()
     for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     for _, p in pairs(Players:GetPlayers()) do
@@ -565,8 +570,12 @@ local function fullRefresh()
     end
 end
 
+-- Chạy lần đầu
+fullRefresh()
+
+-- Lắng nghe player
 Players.PlayerAdded:Connect(function(p)
-    task.wait(1)
+    task.wait(2) -- Đợi lâu hơn một chút để server load xong char
     if not scroll:FindFirstChild(tostring(p.UserId)) then
         createRow(p)
     end
@@ -576,5 +585,3 @@ Players.PlayerRemoving:Connect(function(p)
     local row = scroll:FindFirstChild(tostring(p.UserId))
     if row then row:Destroy() end
 end)
-
-fullRefresh()
