@@ -449,107 +449,62 @@ end)
 
 --// 2. HÀM TẠO HÀNG (DÙNG LOGIC HOOK KẾT HỢP WHILE)
 local function createRow(p)
-    local Theme = {
-        RowBg = Color3.fromRGB(35, 32, 48),
-        Text = Color3.fromRGB(255, 255, 255),
-        SubText = Color3.fromRGB(180, 180, 180),
-        Green = Color3.fromRGB(0, 255, 127),
-        Yellow = Color3.fromRGB(255, 255, 0),
-        Red = Color3.fromRGB(255, 70, 70)
-    }
-
     local row = Instance.new("Frame")
-    row.Name = tostring(p.UserId)
-    row.Size = UDim2.new(0.95, 0, 0, 45) -- Dùng tỉ lệ % để chắc chắn nó hiện
-    row.BackgroundColor3 = Theme.RowBg
-    row.BorderSizePixel = 0
-    row.Parent = scroll
-    
-    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+    row.Size = UDim2.new(1, 0, 0, 28)
+    row.BackgroundTransparency = 1
 
-    -- 1. AVATAR
-    local avatarImg = Instance.new("ImageLabel", row)
-    avatarImg.Size = UDim2.new(0, 32, 0, 32)
-    avatarImg.Position = UDim2.new(0, 8, 0.5, -16)
-    avatarImg.BackgroundTransparency = 1
-    avatarImg.Image = ""
-    Instance.new("UICorner", avatarImg).CornerRadius = UDim.new(1, 0)
+    local txt = Instance.new("TextLabel", row)
+    txt.Size = UDim2.new(1, -10, 1, 0)
+    txt.Position = UDim2.new(0, 5, 0, 0)
+    txt.BackgroundTransparency = 1
+    txt.Font = Enum.Font.Gotham
+    txt.TextSize = 14
+    txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+    txt.TextXAlignment = Enum.TextXAlignment.Left
+    txt.Text = p.Name .. " | Loading..."
 
-    task.spawn(function()
-        pcall(function()
-            avatarImg.Image = Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
-        end)
-    end)
-
-    -- 2. NAME
-    local nameTxt = Instance.new("TextLabel", row)
-    nameTxt.Size = UDim2.new(0.3, 0, 1, 0)
-    nameTxt.Position = UDim2.new(0, 45, 0, 0)
-    nameTxt.BackgroundTransparency = 1
-    nameTxt.Font = Enum.Font.GothamBold
-    nameTxt.TextSize = 12
-    nameTxt.TextColor3 = Theme.Text
-    nameTxt.TextXAlignment = Enum.TextXAlignment.Left
-    nameTxt.Text = p.DisplayName
-
-    -- 3. HP
-    local hpTxt = Instance.new("TextLabel", row)
-    hpTxt.Size = UDim2.new(0.25, 0, 1, 0)
-    hpTxt.Position = UDim2.new(0.45, 0, 0, 0)
-    hpTxt.BackgroundTransparency = 1
-    hpTxt.Font = Enum.Font.GothamMedium
-    hpTxt.TextSize = 12
-    hpTxt.TextColor3 = Theme.Green
-    hpTxt.Text = "..."
-
-    -- 4. DISTANCE
-    local distTxt = Instance.new("TextLabel", row)
-    distTxt.Size = UDim2.new(0.2, 0, 1, 0)
-    distTxt.Position = UDim2.new(0.75, 0, 0, 0)
-    distTxt.BackgroundTransparency = 1
-    distTxt.Font = Enum.Font.Gotham
-    distTxt.TextSize = 11
-    distTxt.TextColor3 = Theme.SubText
-    distTxt.TextXAlignment = Enum.TextXAlignment.Right
-    distTxt.Text = "---"
-
-    local function update()
-        if not p or not p.Parent then return end
-        local char = p.Character
-        local lpChar = lp.Character
-        
-        -- HP logic
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local function updateHealth(hum)
         if hum then
-            local hp = math.floor(hum.Health)
-            hpTxt.Text = hp .. "/" .. math.floor(hum.MaxHealth)
-            local ratio = hum.Health/hum.MaxHealth
-            hpTxt.TextColor3 = (ratio > 0.7 and Theme.Green) or (ratio > 0.3 and Theme.Yellow) or Theme.Red
-        else
-            hpTxt.Text = "Dead"
-            hpTxt.TextColor3 = Theme.Red
-        end
-
-        -- Distance logic
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        local lhrp = lpChar and lpChar:FindFirstChild("HumanoidRootPart")
-        if hrp and lhrp then
-            distTxt.Text = math.floor((hrp.Position - lhrp.Position).Magnitude) .. "m"
-        else
-            distTxt.Text = "---"
+            txt.Text = p.Name .. " | " .. math.floor(hum.Health)
         end
     end
 
-    -- Vòng lặp cập nhật
-    task.spawn(function()
-        while row and row.Parent do
-            pcall(update)
-            task.wait(0.5)
+    local function hook(char)
+        -- Đợi Humanoid xuất hiện
+        local hum = char:WaitForChild("Humanoid", 10)
+        
+        if hum then
+            -- Cập nhật ngay lập tức khi tìm thấy Humanoid
+            updateHealth(hum)
+            
+            -- Lắng nghe thay đổi máu
+            local connection
+            connection = hum:GetPropertyChangedSignal("Health"):Connect(function()
+                if hum and hum.Parent then
+                    updateHealth(hum)
+                else
+                    -- Nếu Humanoid bị xóa, ngắt kết nối để tránh leak
+                    connection:Disconnect()
+                end
+            end)
+        else
+            txt.Text = p.Name .. " | N/A"
         end
+    end
+
+    -- Khởi tạo ban đầu
+    if p.Character then
+        task.spawn(hook, p.Character)
+    end
+
+    -- Lắng nghe khi nhân vật hồi sinh (CharacterAdded)
+    p.CharacterAdded:Connect(function(newChar)
+        hook(newChar)
     end)
 
     return row
 end
+
 
 --// 3. LOGIC LÀM MỚI DANH SÁCH
 local function refresh()
