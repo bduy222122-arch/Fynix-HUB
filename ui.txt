@@ -452,21 +452,33 @@ local function createRow(p)
         return math.floor((hum.Health / hum.MaxHealth) * 100)
     end
     
-    task.spawn(function()
-        while row.Parent do
-            task.wait(0)
+    local function bindRow(p, txt)
+        task.spawn(function()
+            local function hook(char)
+                local hum = char:WaitForChild("Humanoid", 5)
+                if not hum then
+                    txt.Text = p.Name.." | N/A"
+                    return
+                end
     
-            local char = p.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
+                -- update ngay
+                txt.Text = p.Name.." | "..math.floor(hum.Health).."%"
     
-            if hum then
-                local percent = math.floor((hum.Health / hum.MaxHealth) * 100)
-                txt.Text = p.Name.." | "..percent.."%"
-            else
-                txt.Text = p.Name.." | Loading"
+                -- update realtime
+                hum:GetPropertyChangedSignal("Health"):Connect(function()
+                    txt.Text = p.Name.." | "..math.floor(hum.Health).."%"
+                end)
             end
-        end
-    end)
+    
+            -- lần đầu
+            if p.Character then
+                hook(p.Character)
+            end
+    
+            -- respawn
+            p.CharacterAdded:Connect(hook)
+        end)
+    end
     
     return row
 end
