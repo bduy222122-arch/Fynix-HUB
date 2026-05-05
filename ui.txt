@@ -417,42 +417,48 @@ end)
 local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
 
---// 1. TẠO CONTAINER CHUẨN (Sửa lỗi không thấy gì)
--- Chúng ta cần lấy Holder thực sự của Section đó
+--// 1. TẠO CONTAINER GIỚI HẠN (Sửa lỗi tràn UI)
 local targetParent = sections.Player
 if targetParent:FindFirstChild("Holder") then
     targetParent = targetParent.Holder
 end
 
--- Xóa scroll cũ nếu có để tránh trùng lặp
-if targetParent:FindFirstChild("PlayerListScroll") then
-    targetParent.PlayerListScroll:Destroy()
+-- Xóa cũ nếu có
+if targetParent:FindFirstChild("PlayerListContainer") then
+    targetParent.PlayerListContainer:Destroy()
 end
+
+-- Tạo Frame nền để giữ danh sách không bị tràn
+local container = Instance.new("Frame")
+container.Name = "PlayerListContainer"
+container.Parent = targetParent
+container.Size = UDim2.new(1, -10, 0, 250) -- Chiều cao cố định của vùng hiển thị
+container.BackgroundTransparency = 1
+container.ClipsDescendants = true -- QUAN TRỌNG: Cắt các hàng khi kéo xuống vượt khung
 
 local scroll = Instance.new("ScrollingFrame")
 scroll.Name = "PlayerListScroll"
-scroll.Parent = targetParent
-scroll.Size = UDim2.new(1, 0, 0, 250) -- ÉP CHIỀU CAO cố định 250px để chắc chắn nó hiện
+scroll.Parent = container
+scroll.Size = UDim2.new(1, 0, 1, 0) -- Chiếm toàn bộ container
 scroll.BackgroundTransparency = 1
 scroll.BorderSizePixel = 0
 scroll.ScrollBarThickness = 2
 scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-scroll.ClipsDescendants = false -- Đảm bảo không bị cắt mất nội dung
+scroll.ScrollBarImageColor3 = Color3.fromRGB(150, 150, 150)
 
 local layout = Instance.new("UIListLayout", scroll)
 layout.Padding = UDim.new(0, 5)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- Tự động giãn khung cuộn
 layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+    scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 5)
 end)
 
---// 2. HÀM TẠO HÀNG (Dùng logic Hook ổn định của bạn)
+--// 2. HÀM TẠO HÀNG (Logic ổn định của bạn)
 local function createRow(p)
     local Theme = {
-        RowBg = Color3.fromRGB(45, 42, 58), -- Làm sáng màu nền một chút để dễ phân biệt
+        RowBg = Color3.fromRGB(35, 32, 48),
         Text = Color3.fromRGB(255, 255, 255),
         SubText = Color3.fromRGB(180, 180, 180),
         Green = Color3.fromRGB(0, 255, 127),
@@ -462,17 +468,16 @@ local function createRow(p)
 
     local row = Instance.new("Frame")
     row.Name = tostring(p.UserId)
-    row.Size = UDim2.new(0.95, 0, 0, 45) -- Dùng 95% width để không bị dính sát lề
+    row.Size = UDim2.new(0.98, 0, 0, 40)
     row.BackgroundColor3 = Theme.RowBg
     row.BorderSizePixel = 0
     row.Parent = scroll
     
     Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
 
-    -- 1. AVATAR
     local avatarImg = Instance.new("ImageLabel", row)
-    avatarImg.Size = UDim2.new(0, 30, 0, 30)
-    avatarImg.Position = UDim2.new(0, 8, 0.5, -15)
+    avatarImg.Size = UDim2.new(0, 28, 0, 28)
+    avatarImg.Position = UDim2.new(0, 8, 0.5, -14)
     avatarImg.BackgroundTransparency = 1
     avatarImg.Image = ""
     Instance.new("UICorner", avatarImg).CornerRadius = UDim.new(1, 0)
@@ -483,9 +488,8 @@ local function createRow(p)
         end)
     end)
 
-    -- 2. NAME
     local nameTxt = Instance.new("TextLabel", row)
-    nameTxt.Size = UDim2.new(0, 90, 1, 0)
+    nameTxt.Size = UDim2.new(0.3, 0, 1, 0)
     nameTxt.Position = UDim2.new(0, 45, 0, 0)
     nameTxt.BackgroundTransparency = 1
     nameTxt.Font = Enum.Font.GothamBold
@@ -494,7 +498,6 @@ local function createRow(p)
     nameTxt.TextXAlignment = Enum.TextXAlignment.Left
     nameTxt.Text = p.DisplayName
 
-    -- 3. HP
     local hpTxt = Instance.new("TextLabel", row)
     hpTxt.Size = UDim2.new(0, 70, 1, 0)
     hpTxt.Position = UDim2.new(0.45, 0, 0, 0)
@@ -504,7 +507,6 @@ local function createRow(p)
     hpTxt.TextColor3 = Theme.Green
     hpTxt.Text = "Wait..."
 
-    -- 4. DISTANCE
     local distTxt = Instance.new("TextLabel", row)
     distTxt.Size = UDim2.new(0, 50, 1, 0)
     distTxt.Position = UDim2.new(0.95, -55, 0, 0)
@@ -516,7 +518,7 @@ local function createRow(p)
     distTxt.Text = "---"
 
     local function updateStats()
-        if not p.Parent then return end
+        if not p.Parent or not row.Parent then return end
         local char = p.Character
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         
@@ -539,7 +541,6 @@ local function createRow(p)
         end
     end
 
-    -- Sử dụng cơ chế Hook ổn định của bạn
     local function hook(char)
         local hum = char:WaitForChild("Humanoid", 10)
         if hum then
@@ -551,7 +552,6 @@ local function createRow(p)
     if p.Character then task.spawn(hook, p.Character) end
     p.CharacterAdded:Connect(hook)
 
-    -- Vòng lặp cập nhật khoảng cách mỗi 1 giây
     task.spawn(function()
         while row and row.Parent do
             updateStats()
@@ -570,17 +570,11 @@ local function fullRefresh()
     end
 end
 
--- Chạy lần đầu
 fullRefresh()
-
--- Lắng nghe player
 Players.PlayerAdded:Connect(function(p)
-    task.wait(2) -- Đợi lâu hơn một chút để server load xong char
-    if not scroll:FindFirstChild(tostring(p.UserId)) then
-        createRow(p)
-    end
+    task.wait(2)
+    if not scroll:FindFirstChild(tostring(p.UserId)) then createRow(p) end
 end)
-
 Players.PlayerRemoving:Connect(function(p)
     local row = scroll:FindFirstChild(tostring(p.UserId))
     if row then row:Destroy() end
