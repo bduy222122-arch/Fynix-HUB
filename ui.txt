@@ -417,109 +417,164 @@ end)
 local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
 
---// 1. KIỂM TRA VÀ TẠO CONTAINER (Nếu sections.Player bị lỗi thì nó sẽ tự tạo ScreenGui mới)
-local ParentUI
-if sections and sections.Player then
-    ParentUI = sections.Player
-else
-    local sg = Instance.new("ScreenGui", game:GetService("CoreGui"))
-    sg.Name = "TestPlayerList"
-    local frame = Instance.new("Frame", sg)
-    frame.Size = UDim2.new(0, 350, 0, 400)
-    frame.Position = UDim2.new(0.5, -175, 0.5, -200)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    ParentUI = frame
-end
-
+--// 1. TẠO SCROLLING FRAME TRONG SECTION CỦA BẠN
+-- Lưu ý: Đảm bảo 'sections.Player' đã được tạo trước đó từ Library
 local scroll = Instance.new("ScrollingFrame")
-scroll.Name = "PlayerScroll"
-scroll.Parent = ParentUI
+scroll.Name = "PlayerListScroll"
+scroll.Parent = sections.Player -- Gắn vào Groupbox Player của Night Mystic
 scroll.Size = UDim2.new(1, 0, 1, 0)
 scroll.BackgroundTransparency = 1
+scroll.BorderSizePixel = 0
 scroll.ScrollBarThickness = 2
 scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 
 local layout = Instance.new("UIListLayout", scroll)
 layout.Padding = UDim.new(0, 5)
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+layout.SortOrder = Enum.SortOrder.LayoutOrder
 
+-- Tự động giãn khung cuộn khi có thêm người
 layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
 end)
 
---// 2. HÀM TẠO HÀNG (DÙNG LOGIC HOOK KẾT HỢP WHILE)
+--// 2. HÀM TẠO HÀNG (KẾT HỢP LOGIC HOOK ỔN ĐỊNH CỦA BẠN)
 local function createRow(p)
+    local Theme = {
+        RowBg = Color3.fromRGB(35, 32, 48),
+        Text = Color3.fromRGB(255, 255, 255),
+        SubText = Color3.fromRGB(180, 180, 180),
+        Green = Color3.fromRGB(0, 255, 127),
+        Yellow = Color3.fromRGB(255, 255, 0),
+        Red = Color3.fromRGB(255, 70, 70)
+    }
+
     local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, 0, 0, 28)
-    row.BackgroundTransparency = 1
+    row.Name = tostring(p.UserId)
+    row.Size = UDim2.new(1, -10, 0, 45)
+    row.BackgroundColor3 = Theme.RowBg
+    row.BorderSizePixel = 0
+    row.Parent = scroll
+    
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
 
-    local txt = Instance.new("TextLabel", row)
-    txt.Size = UDim2.new(1, -10, 1, 0)
-    txt.Position = UDim2.new(0, 5, 0, 0)
-    txt.BackgroundTransparency = 1
-    txt.Font = Enum.Font.Gotham
-    txt.TextSize = 14
-    txt.TextColor3 = Color3.fromRGB(255, 255, 255)
-    txt.TextXAlignment = Enum.TextXAlignment.Left
-    txt.Text = p.Name .. " | Loading..."
+    -- 1. AVATAR
+    local avatarImg = Instance.new("ImageLabel", row)
+    avatarImg.Size = UDim2.new(0, 32, 0, 32)
+    avatarImg.Position = UDim2.new(0, 10, 0.5, -16)
+    avatarImg.BackgroundTransparency = 1
+    avatarImg.Image = ""
+    Instance.new("UICorner", avatarImg).CornerRadius = UDim.new(1, 0)
 
-    local function updateHealth(hum)
+    task.spawn(function()
+        pcall(function()
+            avatarImg.Image = Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+        end)
+    end)
+
+    -- 2. NAME (Dàn hàng ngang)
+    local nameTxt = Instance.new("TextLabel", row)
+    nameTxt.Size = UDim2.new(0, 100, 1, 0)
+    nameTxt.Position = UDim2.new(0, 50, 0, 0)
+    nameTxt.BackgroundTransparency = 1
+    nameTxt.Font = Enum.Font.GothamBold
+    nameTxt.TextSize = 13
+    nameTxt.TextColor3 = Theme.Text
+    nameTxt.TextXAlignment = Enum.TextXAlignment.Left
+    nameTxt.Text = p.DisplayName
+
+    -- 3. HP (Dùng logic Hook ổn định của bạn)
+    local hpTxt = Instance.new("TextLabel", row)
+    hpTxt.Size = UDim2.new(0, 80, 1, 0)
+    hpTxt.Position = UDim2.new(0.45, 0, 0, 0)
+    hpTxt.BackgroundTransparency = 1
+    hpTxt.Font = Enum.Font.GothamMedium
+    hpTxt.TextSize = 13
+    hpTxt.TextColor3 = Theme.Green
+    hpTxt.Text = "Loading..."
+
+    -- 4. DISTANCE
+    local distTxt = Instance.new("TextLabel", row)
+    distTxt.Size = UDim2.new(0, 60, 1, 0)
+    distTxt.Position = UDim2.new(0.95, -60, 0, 0)
+    distTxt.BackgroundTransparency = 1
+    distTxt.Font = Enum.Font.Gotham
+    distTxt.TextSize = 12
+    distTxt.TextColor3 = Theme.SubText
+    distTxt.TextXAlignment = Enum.TextXAlignment.Right
+    distTxt.Text = "---"
+
+    -- LOGIC CẬP NHẬT HP (Hook từ code ổn định của bạn)
+    local function updateStats(hum)
         if hum then
-            txt.Text = p.Name .. " | " .. math.floor(hum.Health)
+            local hp = math.floor(hum.Health)
+            local maxHp = math.floor(hum.MaxHealth)
+            hpTxt.Text = hp .. "/" .. maxHp
+            
+            -- Thêm màu sắc cho sinh động
+            local ratio = hp/maxHp
+            if ratio > 0.7 then hpTxt.TextColor3 = Theme.Green
+            elseif ratio > 0.3 then hpTxt.TextColor3 = Theme.Yellow
+            else hpTxt.TextColor3 = Theme.Red end
+        end
+        
+        -- Cập nhật khoảng cách luôn mỗi khi máu đổi hoặc loop
+        local lChar = lp.Character
+        local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+        local lhrp = lChar and lChar:FindFirstChild("HumanoidRootPart")
+        
+        if hrp and lhrp then
+            distTxt.Text = math.floor((hrp.Position - lhrp.Position).Magnitude) .. "m"
+        else
+            distTxt.Text = "---"
         end
     end
 
     local function hook(char)
-        -- Đợi Humanoid xuất hiện
-        local hum = char:WaitForChild("Humanoid", 10)
-        
+        local hum = char:WaitForChild("Humanoid", 15)
         if hum then
-            -- Cập nhật ngay lập tức khi tìm thấy Humanoid
-            updateHealth(hum)
-            
-            -- Lắng nghe thay đổi máu
-            local connection
-            connection = hum:GetPropertyChangedSignal("Health"):Connect(function()
-                if hum and hum.Parent then
-                    updateHealth(hum)
-                else
-                    -- Nếu Humanoid bị xóa, ngắt kết nối để tránh leak
-                    connection:Disconnect()
-                end
+            updateStats(hum)
+            hum:GetPropertyChangedSignal("Health"):Connect(function()
+                updateStats(hum)
             end)
         else
-            txt.Text = p.Name .. " | N/A"
+            hpTxt.Text = "N/A"
         end
     end
 
     -- Khởi tạo ban đầu
-    if p.Character then
-        task.spawn(hook, p.Character)
-    end
+    if p.Character then task.spawn(hook, p.Character) end
+    p.CharacterAdded:Connect(hook)
 
-    -- Lắng nghe khi nhân vật hồi sinh (CharacterAdded)
-    p.CharacterAdded:Connect(function(newChar)
-        hook(newChar)
+    -- Loop nhỏ 1 giây để cập nhật khoảng cách khi player đứng yên nhưng máu không đổi
+    task.spawn(function()
+        while row and row.Parent do
+            local hum = p.Character and p.Character:FindFirstChild("Humanoid")
+            updateStats(hum)
+            task.wait(1)
+        end
     end)
 
     return row
 end
 
-
---// 3. LOGIC LÀM MỚI DANH SÁCH
-local function refresh()
-    for _, v in pairs(scroll:GetChildren()) do
-        if v:IsA("Frame") then v:Destroy() end
-    end
+--// 3. QUẢN LÝ DANH SÁCH
+local function fullRefresh()
+    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= lp then createRow(p) end
     end
 end
 
--- Chạy
-refresh()
-Players.PlayerAdded:Connect(function(p) task.wait(1); if p ~= lp then createRow(p) end end)
+Players.PlayerAdded:Connect(function(p)
+    task.wait(1)
+    if not scroll:FindFirstChild(tostring(p.UserId)) then
+        createRow(p)
+    end
+end)
+
 Players.PlayerRemoving:Connect(function(p)
     local row = scroll:FindFirstChild(tostring(p.UserId))
     if row then row:Destroy() end
 end)
+
+fullRefresh()
