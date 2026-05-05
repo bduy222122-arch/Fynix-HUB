@@ -432,48 +432,61 @@ end)
 
 local function createRow(p)
     local row = Instance.new("Frame")
-    row.Size = UDim2.new(1,0,0,28)
+    row.Size = UDim2.new(1, 0, 0, 28)
     row.BackgroundTransparency = 1
 
     local txt = Instance.new("TextLabel", row)
-    txt.Size = UDim2.new(1,-10,1,0)
-    txt.Position = UDim2.new(0,5,0,0)
+    txt.Size = UDim2.new(1, -10, 1, 0)
+    txt.Position = UDim2.new(0, 5, 0, 0)
     txt.BackgroundTransparency = 1
     txt.Font = Enum.Font.Gotham
     txt.TextSize = 14
-    txt.TextColor3 = Color3.fromRGB(255,255,255)
+    txt.TextColor3 = Color3.fromRGB(255, 255, 255)
     txt.TextXAlignment = Enum.TextXAlignment.Left
-    txt.Text = p.Name.." | Loading..."
+    txt.Text = p.Name .. " | Loading..."
 
-    local function bindRow(p, txt)
-        task.spawn(function()
-            local function hook(char)
-                local hum = char:WaitForChild("Humanoid", 5)
-                if not hum then
-                    txt.Text = p.Name.." | N/A"
-                    return
-                end
-
-                txt.Text = p.Name.." | "..math.floor(hum.Health)
-
-                hum:GetPropertyChangedSignal("Health"):Connect(function()
-                    txt.Text = p.Name.." | "..math.floor(hum.Health)
-                end)
-            end
-
-            if p.Character then
-                hook(p.Character)
-            end
-
-            p.CharacterAdded:Connect(hook)
-        end)
+    local function updateHealth(hum)
+        if hum then
+            txt.Text = p.Name .. " | " .. math.floor(hum.Health)
+        end
     end
 
-    -- 🔥 QUAN TRỌNG
-    bindRow(p, txt)
+    local function hook(char)
+        -- Đợi Humanoid xuất hiện
+        local hum = char:WaitForChild("Humanoid", 10)
+        
+        if hum then
+            -- Cập nhật ngay lập tức khi tìm thấy Humanoid
+            updateHealth(hum)
+            
+            -- Lắng nghe thay đổi máu
+            local connection
+            connection = hum:GetPropertyChangedSignal("Health"):Connect(function()
+                if hum and hum.Parent then
+                    updateHealth(hum)
+                else
+                    -- Nếu Humanoid bị xóa, ngắt kết nối để tránh leak
+                    connection:Disconnect()
+                end
+            end)
+        else
+            txt.Text = p.Name .. " | N/A"
+        end
+    end
+
+    -- Khởi tạo ban đầu
+    if p.Character then
+        task.spawn(hook, p.Character)
+    end
+
+    -- Lắng nghe khi nhân vật hồi sinh (CharacterAdded)
+    p.CharacterAdded:Connect(function(newChar)
+        hook(newChar)
+    end)
 
     return row
 end
+
 -- INIT
 for _,p in ipairs(Players:GetPlayers()) do
     if p ~= lp then
